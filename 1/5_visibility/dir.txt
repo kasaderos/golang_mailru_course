@@ -1,0 +1,10 @@
+﻿C:\Users\User\go
+├───bin
+├───pkg
+└───src
+    ├───golang-2018-2
+    │   ├───visibility
+    │   │   │───person
+    │   │   │   │───person.go
+    │   │   │   └───func.go
+    │   │   └───main.go
