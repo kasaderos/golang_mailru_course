@@ -7,7 +7,7 @@ import (
 // вам необходимо поправить баги в этих функциях чтобы тесты в main_test.go проходили
 
 func ExistCounter() int {
-	ids := []int{1, 2, 3, 4, 5, 6}
+	ids := [...]int{1, 2, 3, 4, 5, 6}
 	enabled := map[int]bool{
 		1: false,
 		2: true,
@@ -16,7 +16,7 @@ func ExistCounter() int {
 	}
 	totalExist := 0
 	for _, id := range ids {
-		if enabled[id] {
+		if _, ok := enabled[id]; ok {
 			totalExist++
 		}
 	}
@@ -26,7 +26,7 @@ func ExistCounter() int {
 func Shadowing() int {
 	x := 1
 	for i := 0; i <= 10; i++ {
-		x := x + 1
+		x++
 		x *= 2
 	}
 	return x
@@ -39,7 +39,7 @@ func BadMap() (resultErr error) {
 		}
 	}()
 
-	var users map[int]string
+	var users = map[int]string{}
 	users[100500] = "rvasily"
 
 	return nil
