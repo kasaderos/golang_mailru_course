@@ -1,11 +1,29 @@
 package main
 
+/*
+Калькулятор
+
+Программа похожим образом работает
+как интерпритатор python3, только без объявлений и
+инициализаций переменных
+Весь код переписан с С++ и изменен (не из википедии)
+
+В случае неправильного ввода выводит 0
+Описание принимающих выражений и соответствующих вызовов
+
+E -> T {[ + | - ] T}
+T -> F {[ * | / ] F}
+F -> N | (E)
+N -> R | NR
+R -> 0 | 1 | .. | 9
+*/
+
 import (
 	"bufio"
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
+	"unicode"
 )
 
 type Lex struct {
@@ -32,20 +50,16 @@ func (st *Stack) Pop() *Lex {
 	return res
 }
 
-/*
-E -> T {[ + | - ] T}
-T -> F {[ * | / ] F}
-F -> N | (E)
-N -> R | NR
-R -> 0 | 1 | .. | 9
-*/
-
 type Parser struct {
+	chNum  int
+	char   rune
+	line   []rune
 	stack  Stack
 	tokens []string
 	pos    int
 	curLex Lex
 	poliz  []Lex
+	minus  bool
 }
 
 const (
@@ -56,6 +70,9 @@ const (
 	NUM
 	ASSIGN
 	LEX
+	LPAREN
+	RPAREN
+	LEXEND
 )
 
 var lexs map[string]int = map[string]int{
@@ -64,74 +81,160 @@ var lexs map[string]int = map[string]int{
 	"*": MUL,
 	"/": DIV,
 	"=": ASSIGN,
+	"(": LPAREN,
+	")": RPAREN,
 }
 
 func (p *Parser) nextToken() {
-	if p.pos < len(p.tokens)-1 {
-		p.pos++
-	}
-	p.curLex = Lex{strval: p.tokens[p.pos]}
+	p.curLex = p.getLex()
 }
 
 func (p *Parser) F() {
-	fmt.Printf("F\n")
-	var err error
-	p.curLex.val, err = strconv.Atoi(p.curLex.strval)
-	if err != nil {
-		panic("Error: can't convert to int")
+	//fmt.Printf("F %s\n", toprint[p.curLex.name])
+	if p.curLex.name == LPAREN {
+		p.nextToken()
+		p.E()
+		if p.curLex.name != RPAREN {
+			panic("Error: rparen not closed")
+		}
+		p.nextToken()
+	} else {
+		p.stack.Push(p.curLex)
+		p.poliz = append(p.poliz, p.curLex)
+		p.nextToken()
 	}
-	lex := Lex{name: NUM, val: p.curLex.val}
-	p.stack.Push(lex)
-	p.poliz = append(p.poliz, lex)
-	p.nextToken()
 }
 
 func (p *Parser) T() {
-	fmt.Printf("T\n")
+	//fmt.Printf("T %s \n", toprint[p.curLex.name])
 	p.F()
-	for p.curLex.strval == "*" || p.curLex.strval == "/" {
-		p.stack.Push(Lex{name: lexs[p.curLex.strval]})
+	for p.curLex.name == MUL || p.curLex.name == DIV {
+		p.stack.Push(Lex{name: p.curLex.name})
 		p.nextToken()
 		p.F()
 		p.checkOp()
 	}
-
 }
 
 func (p *Parser) E() {
-	fmt.Printf("E\n")
+	//fmt.Printf("E %s\n", toprint[p.curLex.name])
 	p.T()
-	for p.curLex.strval == "+" || p.curLex.strval == "-" {
-		p.stack.Push(Lex{name: lexs[p.curLex.strval]})
+	for p.curLex.name == PLUS || p.curLex.name == MINUS {
+		p.stack.Push(Lex{name: p.curLex.name})
 		p.nextToken()
 		p.T()
 		p.checkOp()
 	}
 }
 
-func (p *Parser) parse(line string) []Lex {
+func (p *Parser) gc() {
+	if p.chNum < len(p.line) {
+		p.char = p.line[p.chNum]
+		p.chNum++
+	} else {
+		p.char = '\n'
+	}
+}
+
+func (p *Parser) getLex() (lex Lex) {
+	st := 0
+	var buf []rune
+	for {
+		//fmt.Println("ST ", st, "CHAR", p.char)
+		switch st {
+		case 0:
+			if p.char == ' ' || p.char == '\t' {
+				p.gc()
+				continue
+			} else if p.char == '\n' {
+				return Lex{name: LEXEND}
+			} else if unicode.IsDigit(p.char) {
+				st = 1
+			} else {
+				st = 2
+			}
+		case 1:
+			p.minus = false
+			if unicode.IsDigit(p.char) {
+				buf = append(buf, p.char)
+				p.gc()
+			} else {
+				if v, err := strconv.Atoi(string(buf)); err == nil {
+					return Lex{name: NUM, val: v}
+				}
+				panic("getLex")
+			}
+		case 2:
+			if _, ok := lexs[string(p.char)]; ok {
+				if p.chNum == 1 || p.char == '(' {
+					p.minus = true
+				}
+				if p.char == '-' && p.minus {
+					st = 1
+					buf = append(buf, '-')
+					p.gc()
+					break
+				}
+				lex = Lex{name: lexs[string(p.char)]}
+				p.gc()
+				return lex
+			}
+			panic("getLex: lex analysis failed")
+		}
+	}
+}
+
+func (p *Parser) parse() []Lex {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Recovered : ", r)
+			fmt.Println("Recovered from parse: ", r)
 		}
 	}()
-	p.tokens = strings.Split(line, " ")
-	p.pos = 0
-	p.curLex = Lex{strval: p.tokens[p.pos]}
+	p.gc()
 	p.stack = Stack{
 		data: make([]*Lex, 0, 16),
 		size: 0,
 	}
-	if lexs[p.curLex.strval] == ASSIGN {
-		p.nextToken()
-		p.E()
-		p.poliz = append(p.poliz, Lex{name: ASSIGN})
-	} else {
-		panic("Error : where is the simbol '=' ?")
+	p.nextToken()
+	p.E()
+	if p.curLex.name != LEXEND {
+		panic("Error LEXEND")
 	}
-	return p.poliz
+	return append(p.poliz, Lex{name: LEXEND})
 }
 
+func executePoliz(poliz *[]Lex) (res int) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered from executePoliz: ", r)
+		}
+	}()
+	stack := Stack{
+		data: make([]*Lex, 0, 16),
+		size: 0,
+	}
+	for _, lex := range *poliz {
+		switch lex.name {
+		case LEXEND:
+			return stack.Pop().val
+		case PLUS:
+			stack.Push(Lex{name: NUM, val: stack.Pop().val + stack.Pop().val})
+		case MINUS:
+			v1 := stack.Pop().val
+			stack.Push(Lex{name: NUM, val: stack.Pop().val - v1})
+		case MUL:
+			stack.Push(Lex{name: NUM, val: stack.Pop().val * stack.Pop().val})
+		case DIV:
+			v1 := stack.Pop().val
+			stack.Push(Lex{name: NUM, val: stack.Pop().val / v1})
+		case NUM:
+			stack.Push(lex)
+		default:
+			fmt.Println("Error : unknown expression")
+		}
+	}
+	return
+}
 func (p *Parser) checkOp() {
 	p.stack.Pop()
 	op := p.stack.Pop()
@@ -142,41 +245,28 @@ func (p *Parser) checkOp() {
 	}
 	p.poliz = append(p.poliz, Lex{name: op.name})
 }
+
+/*
+var toprint map[int]string = map[int]string{
+	PLUS:   "+",
+	MINUS:  "-",
+	MUL:    "*",
+	DIV:    "/",
+	NUM:    "num",
+	ASSIGN: "=",
+	LEX:    "lex",
+	LPAREN: "(",
+	RPAREN: ")",
+	LEXEND: "lexend",
+}*/
+
 func main() {
-	stack := Stack{
-		data: make([]*Lex, 0, 16),
-		size: 0,
-	}
 	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Printf(">>> ")
 	for scanner.Scan() {
-		parser := Parser{}
-		poliz := parser.parse(scanner.Text())
-		//fmt.Println(poliz)
-	POLIZ:
-		for _, token := range poliz {
-			switch token.name {
-			case ASSIGN:
-				fmt.Printf("Result = %d\n", stack.Pop().val)
-			case PLUS:
-				stack.Push(Lex{name: NUM, val: stack.Pop().val + stack.Pop().val})
-			case MINUS:
-				v1 := stack.Pop().val
-				stack.Push(Lex{name: NUM, val: stack.Pop().val - v1})
-			case MUL:
-				stack.Push(Lex{name: NUM, val: stack.Pop().val * stack.Pop().val})
-			case DIV:
-				v1 := stack.Pop().val
-				v2 := stack.Pop().val
-				if v1 == 0 {
-					fmt.Println("Error: division by zero")
-					break POLIZ
-				}
-				stack.Push(Lex{name: NUM, val: v2 / v1})
-			case NUM:
-				stack.Push(token)
-			default:
-				break POLIZ
-			}
-		}
+		parser := Parser{line: []rune(scanner.Text())}
+		lexs := parser.parse()
+		fmt.Println(executePoliz(&lexs))
+		fmt.Printf(">>> ")
 	}
 }
