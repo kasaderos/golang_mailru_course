@@ -4,6 +4,36 @@ package main
 	код писать в этом файле
 	наверняка у вас будут какие-то структуры с методами, глобальные перменные ( тут можно ), функции
 */
+type Backpack struct {
+	inventory []string
+}
+
+type Man struct {
+	backpack Backpack
+}
+
+// идти
+func (man *Man) move() {
+}
+
+// осмотреться
+func (man *Man) lookAround() {
+
+}
+
+// надеть
+func (man *Man) putOn() {
+}
+
+type Item struct {
+	name string
+}
+
+type Room struct {
+	name  string
+	items []Item
+	paths []string
+}
 
 func main() {
 	/*
@@ -14,10 +44,16 @@ func main() {
 }
 
 func initGame() {
-	/*
-		эта функция инициализирует игровой мир - все команты
-		если что-то было - оно корректно перезатирается
-	*/
+	var rooms = []Room {
+		Room {
+			name : "кухня",
+			items : {
+				{name : "стол"},
+				{name : "чай"},
+				{name : "стол"},
+			}
+		}
+	}
 }
 
 func handleCommand(command string) string {
