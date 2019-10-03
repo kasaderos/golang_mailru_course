@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -72,17 +73,33 @@ func (man *Man) move(newLoc string) string {
 }
 
 // осмотреться
-func (man *Man) lookAround() (res string) {
+func (m *Man) lookAround() (res string) {
 	res = man.location.info
+	onTheTable, onTheChair := "", ""
 	if man.location.items != nil {
-		return ""
+		for _, item := range m.location.items {
+			if item.parent == Table {
+				onTheTable += item.name.String() + ", "
+			} else if item.parent == Chair {
+				onTheChair += item.name.String() + ", "
+			}
+		}
 	}
-	return ""
+	if onTheTable != "" {
+		res += " на столе: " + onTheTable
+	}
+	if onTheChair != "" {
+		res += "на стуле: " + onTheChair
+	}
+
+	length := len(res)
+	res = res[:length-2] + "."
+	return
 }
 func (man *Man) putOn(item string) string {
 	if item == Backpack.String() {
 		man.haveBackpack = true
-		return "вы надели: " + item
+		return "вы надели: " + item + "."
 	}
 	return "нечего одеть"
 }
@@ -107,6 +124,16 @@ func main() {
 		очень круто будет сделать построчный ввод команд тут, хотя это и не требуется по заданию
 	*/
 	initGame()
+	fmt.Println(handleCommand("осмотреться"))
+	fmt.Println(handleCommand("идти коридор"))
+	fmt.Println(handleCommand("идти комната"))
+	fmt.Println(handleCommand("осмотреться"))
+	fmt.Println(handleCommand("надеть рюкзак"))
+	fmt.Println(handleCommand("взять ключи"))
+	fmt.Println(handleCommand("взять конспекты"))
+	fmt.Println(handleCommand("идти коридор"))
+	fmt.Println(handleCommand("применить ключи дверь"))
+	fmt.Println(handleCommand("идти улица"))
 }
 
 func initGame() {
@@ -128,7 +155,7 @@ func initGame() {
 					name: Door,
 				},
 			},
-			info: "ничего интересного",
+			info: "ничего интересного.",
 		},
 		Room{
 			name: Bedroom,
@@ -146,19 +173,19 @@ func initGame() {
 					parent: Chair,
 				},
 			},
-			info: "ты в своей комнате",
+			info: "ты в своей комнате.",
 		},
 		Room{
 			name: Street,
-			info: "на улице весна",
+			info: "на улице весна.",
 		},
 	}
-	rooms[0].paths = append(rooms[0].paths, &rooms[1]) // кухня    -> коридор
-	rooms[1].paths = append(rooms[1].paths, &rooms[0]) // коридор  -> кухня
-	rooms[1].paths = append(rooms[1].paths, &rooms[2]) // коридор  -> комнату
-	rooms[1].paths = append(rooms[1].paths, &rooms[3]) // коридор  -> улицу
-	rooms[2].paths = append(rooms[2].paths, &rooms[1]) // комната  -> коридор
-	rooms[3].paths = append(rooms[3].paths, &rooms[1]) // улица    -> коридор
+	rooms[Kitchen].paths = append(rooms[Kitchen].paths, &rooms[Hall]) // кухня    -> коридор
+	rooms[Hall].paths = append(rooms[Hall].paths, &rooms[Kitchen])    // коридор  -> кухня
+	rooms[Hall].paths = append(rooms[Hall].paths, &rooms[Bedroom])    // коридор  -> комнату
+	rooms[Hall].paths = append(rooms[Hall].paths, &rooms[Street])     // коридор  -> улицу
+	rooms[Bedroom].paths = append(rooms[Bedroom].paths, &rooms[Hall]) // комната  -> коридор
+	rooms[Street].paths = append(rooms[Street].paths, &rooms[Hall])   // улица    -> коридор
 	//fmt.Println(rooms[0].paths[0].name)
 	man = Man{
 		location: &rooms[0],
@@ -170,24 +197,35 @@ func initGame() {
 	данная функция принимает команду от "пользователя"
 	и наверняка вызывает какой-то другой метод или функцию у "мира" - списка комнат
 */
-func handleCommand(command string) string {
+func whereToGo(res *string) {
+	*res += " можно пройти - "
+	for _, way := range man.location.paths {
+		*res += (*way).name.String() + ", "
+	}
+	length := len(*res)
+	*res = (*res)[:length-2]
+}
+
+func handleCommand(command string) (res string) {
 	args := strings.Split(command, " ")
 	if args == nil {
 		panic("No commands")
 	}
 	if args[0] == "осмотреться" {
-		return man.lookAround()
+		res = man.lookAround()
+		whereToGo(&res)
 	} else if args[0] == "идти" {
-		return man.move(args[1])
+		res = man.move(args[1])
+		whereToGo(&res)
 	} else if args[0] == "взять" {
-		return man.take(args[1])
+		res = man.take(args[1])
 	} else if args[0] == "надеть" {
-		return man.putOn(args[1])
+		res = man.putOn(args[1])
 	} else if args[0] == "применить" {
-		return man.apply(args[1], args[2])
+		res = man.apply(args[1], args[2])
 	}
 
-	return "not implemented"
+	return
 }
 
 /*
