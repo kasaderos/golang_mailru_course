@@ -35,6 +35,8 @@
 * https://habrahabr.ru/post/325468/ - как не наступать на грабли в Go
 * https://habrahabr.ru/post/276981/ - Краш-курс по интерфейсам в Go
 * http://golang-book.ru
+* https://m.habr.com/ru/company/otus/blog/465613/ - Полное руководство по массивам и срезам в Golang
+* https://m.habr.com/ru/company/mailru/blog/463063/ - разбираемся с интерфейсами в го
 
 Литература по го на русском языке:
 
