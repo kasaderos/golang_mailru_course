@@ -9,21 +9,21 @@ import (
 )
 
 func ExecutePipeline(jobs ...job) {
-	var chans []chan interface{}
-	for i := 0; i < len(jobs); i++ {
-		chans = append(chans, make(chan interface{}))
-	}
 	wg := &sync.WaitGroup{}
+	var pred chan interface{}
 	for i, f := range jobs {
 		wg.Add(1)
+		out := make(chan interface{})
+		in := pred
+		pred = out
 		go func(i int, f job) {
 			defer wg.Done()
 			if i == 0 {
-				f(chans[i], chans[i])
+				f(in, out)
 			} else {
-				f(chans[i-1], chans[i])
+				f(in, out)
 			}
-			close(chans[i])
+			close(out)
 		}(i, f)
 	}
 	wg.Wait()
