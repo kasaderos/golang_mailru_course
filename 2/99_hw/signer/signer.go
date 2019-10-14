@@ -18,11 +18,7 @@ func ExecutePipeline(jobs ...job) {
 		pred = out
 		go func(i int, f job) {
 			defer wg.Done()
-			if i == 0 {
-				f(in, out)
-			} else {
-				f(in, out)
-			}
+			f(in, out)
 			close(out)
 		}(i, f)
 	}
@@ -30,30 +26,39 @@ func ExecutePipeline(jobs ...job) {
 }
 
 func SingleHash(in, out chan interface{}) {
-	var chans []chan string
-	k := 0
-	mu := &sync.Mutex{}
+
+	strs := make([]string, 10, 100)
+	var i int
+	mu := &sync.RWMutex{}
+	//mu2 := &sync.Mutex{}
 	for v := range in {
 		s := strconv.Itoa(v.(int))
-		for i := 0; i < 3; i++ {
-			chans = append(chans, make(chan string))
-		}
-		go func(s string, res chan string) {
-			res <- DataSignerCrc32(s)
-		}(s, chans[k])
-		go func(s string, out chan string, mu *sync.Mutex) {
+		ch := make(chan string)
+		go func(s string, i int) {
+			defer mu.Unlock()
+			mu.Lock()
+			strs[i] = DataSignerCrc32(s)
+			i++
+		}(s, i)
+		i++
+		go func(s string, out chan string) {
+			defer mu.Unlock()
 			mu.Lock()
 			out <- DataSignerMd5(s)
-			mu.Unlock()
-		}(s, chans[k+1], mu)
-		go func(res chan string, in chan string) {
-			res <- DataSignerCrc32(<-in)
-		}(chans[k+2], chans[k+1])
-		k += 3
+		}(s, ch)
+		go func(in chan string, i int) {
+			defer mu.Unlock()
+			mu.Lock()
+			strs[i] = DataSignerCrc32(<-in)
+		}(ch, i)
+		i++
 	}
-	for i := 0; i < len(chans); i += 3 {
-		out <- <-chans[i] + "~" + <-chans[i+2]
+	mu.RLock()
+	for _, res := range strs {
+		out <- res
 	}
+	mu.RUnlock()
+
 }
 
 func MultiHash(in, out chan interface{}) {
