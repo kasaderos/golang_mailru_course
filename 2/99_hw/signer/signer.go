@@ -18,11 +18,7 @@ func ExecutePipeline(jobs ...job) {
 		pred = out
 		go func(i int, f job) {
 			defer wg.Done()
-			if i == 0 {
-				f(in, out)
-			} else {
-				f(in, out)
-			}
+			f(in, out)
 			close(out)
 		}(i, f)
 	}
