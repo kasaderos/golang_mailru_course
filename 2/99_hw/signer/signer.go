@@ -2,6 +2,7 @@ package main
 
 // сюда писать код
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,21 +53,26 @@ func SingleHash(in, out chan interface{}) {
 
 func MultiHash(in, out chan interface{}) {
 	out2 := make(chan string)
+	workerInput := make(chan int)
 	for v := range in {
-		var temp chan string
-		for th := 0; th <= 5; th++ {
-			next := make(chan string)
-			inn := temp
-			temp = next
-			go func(s string, th int, inn, next chan string) {
-				if inn == nil {
-					next <- DataSignerCrc32(strconv.Itoa(th) + s)
-				} else if th == 5 {
-					out2 <- <-inn + DataSignerCrc32(strconv.Itoa(th)+s)
-				} else {
-					next <- <-inn + DataSignerCrc32(strconv.Itoa(th)+s)
+		mu := &sync.Mutex{}
+		res := ""
+		for i := 0; i <= 5; i++ {
+			go func(s string, th chan int) {
+				v := <-th
+				mu.Lock()
+				res += DataSignerCrc32(string(v) + s)
+				if v == 5 {
+					out2 <- res
 				}
-			}(v.(string), th, inn, next)
+				mu.Unlock()
+			}(v.(string), workerInput)
+		}
+	}
+	for i := 0; i < 7; i++ {
+		for k := 0; k <= 5; k++ {
+			fmt.Println(k)
+			workerInput <- k
 		}
 	}
 	for i := 0; i < 7; i++ {
