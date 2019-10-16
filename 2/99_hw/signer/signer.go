@@ -26,29 +26,27 @@ func ExecutePipeline(jobs ...job) {
 }
 
 func SingleHash(in, out chan interface{}) {
-	var chans []chan string
-	k := 0
+	const goroutinesnum = 7 // можно получить путем подсчета из канала
+	out1 := make(chan string)
+	out2 := make(chan string)
 	mu := &sync.Mutex{}
 	for v := range in {
 		s := strconv.Itoa(v.(int))
-		for i := 0; i < 3; i++ {
-			chans = append(chans, make(chan string))
-		}
-		go func(s string, res chan string) {
-			res <- DataSignerCrc32(s)
-		}(s, chans[k])
-		go func(s string, out chan string, mu *sync.Mutex) {
+		bw := make(chan string)
+		go func(s string) {
+			out1 <- DataSignerCrc32(s)
+		}(s)
+		go func(s string) {
 			mu.Lock()
-			out <- DataSignerMd5(s)
+			bw <- DataSignerMd5(s)
 			mu.Unlock()
-		}(s, chans[k+1], mu)
-		go func(res chan string, in chan string) {
-			res <- DataSignerCrc32(<-in)
-		}(chans[k+2], chans[k+1])
-		k += 3
+		}(s)
+		go func() {
+			out2 <- DataSignerCrc32(<-bw)
+		}()
 	}
-	for i := 0; i < len(chans); i += 3 {
-		out <- <-chans[i] + "~" + <-chans[i+2]
+	for i := 0; i < goroutinesnum; i++ {
+		out <- <-out1 + "~" + <-out2
 	}
 }
 
