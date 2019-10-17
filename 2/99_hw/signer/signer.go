@@ -10,12 +10,12 @@ import (
 
 func ExecutePipeline(jobs ...job) {
 	wg := &sync.WaitGroup{}
-	var pred chan interface{}
+	var prev chan interface{}
 	for i, f := range jobs {
 		wg.Add(1)
 		out := make(chan interface{})
-		in := pred
-		pred = out
+		in := prev
+		prev = out
 		go func(i int, f job, in, out chan interface{}) {
 			defer wg.Done()
 			f(in, out)
@@ -29,20 +29,20 @@ func SingleHash(in, out chan interface{}) {
 	mu := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	for v := range in {
-		out1 := make(chan string)
-		s := strconv.Itoa(v.(int))
-		go func(s string, out1 chan string) {
-			out1 <- DataSignerCrc32(s)
-		}(s, out1)
+		betweenCh := make(chan string)
+		value := strconv.Itoa(v.(int))
+		go func(s string, out chan string) {
+			out <- DataSignerCrc32(s)
+		}(value, betweenCh)
 		wg.Add(1)
-		go func(s string, out chan interface{}, mu *sync.Mutex) {
+		go func(s string, out chan interface{}, previos <-chan string, mu *sync.Mutex) {
 			defer wg.Done()
 			mu.Lock()
-			v := DataSignerMd5(s)
+			md5 := DataSignerMd5(s)
 			mu.Unlock()
-			res := DataSignerCrc32(v)
-			out <- <-out1 + "~" + res
-		}(s, out, mu)
+			result := DataSignerCrc32(md5)
+			out <- <-previos + "~" + result
+		}(value, out, betweenCh, mu)
 	}
 	wg.Wait()
 }
@@ -51,32 +51,32 @@ func MultiHash(in, out chan interface{}) {
 	wg := &sync.WaitGroup{}
 	for v := range in {
 		var temp chan string
-		for i := 0; i <= 5; i++ {
-			to := make(chan string)
-			from := temp
-			temp = to
+		for th := 0; th <= 5; th++ {
+			outTh := make(chan string)
+			inTh := temp
+			temp = outTh
 			wg.Add(1)
-			go func(s string, i int, from, to chan string, out chan interface{}) {
+			go func(s string, th int, inTh <-chan string, outTh chan string, out chan interface{}) {
 				defer wg.Done()
-				v := DataSignerCrc32(strconv.Itoa(i) + s)
-				if from == nil {
-					to <- v
-				} else if i < 5 {
-					to <- <-from + v
-				} else if i == 5 {
-					out <- <-from + v
+				result := DataSignerCrc32(strconv.Itoa(th) + s)
+				if inTh == nil {
+					outTh <- result
+				} else if th < 5 {
+					outTh <- <-inTh + result
+				} else if th == 5 {
+					out <- <-inTh + result
 				}
-			}(v.(string), i, from, to, out)
+			}(v.(string), th, inTh, outTh, out)
 		}
 	}
 	wg.Wait()
 }
 
 func CombineResults(in, out chan interface{}) {
-	var res []string
+	var result []string
 	for s := range in {
-		res = append(res, s.(string))
+		result = append(result, s.(string))
 	}
-	sort.Strings(res)
-	out <- strings.Join(res, "_")
+	sort.Strings(result)
+	out <- strings.Join(result, "_")
 }
