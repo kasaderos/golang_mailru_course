@@ -16,11 +16,11 @@ func ExecutePipeline(jobs ...job) {
 		out := make(chan interface{})
 		in := pred
 		pred = out
-		go func(i int, f job) {
+		go func(i int, f job, in, out chan interface{}) {
 			defer wg.Done()
 			f(in, out)
 			close(out)
-		}(i, f)
+		}(i, f, in, out)
 	}
 	wg.Wait()
 }
@@ -29,8 +29,8 @@ func SingleHash(in, out chan interface{}) {
 	mu := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	for v := range in {
-		s := strconv.Itoa(v.(int))
 		out1 := make(chan string)
+		s := strconv.Itoa(v.(int))
 		go func(s string, out1 chan string) {
 			out1 <- DataSignerCrc32(s)
 		}(s, out1)
@@ -40,7 +40,8 @@ func SingleHash(in, out chan interface{}) {
 			mu.Lock()
 			v := DataSignerMd5(s)
 			mu.Unlock()
-			out <- <-out1 + "~" + DataSignerCrc32(v)
+			res := DataSignerCrc32(v)
+			out <- <-out1 + "~" + res
 		}(s, out, mu)
 	}
 	wg.Wait()
