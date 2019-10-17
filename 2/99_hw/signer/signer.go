@@ -26,50 +26,49 @@ func ExecutePipeline(jobs ...job) {
 }
 
 func SingleHash(in, out chan interface{}) {
-	const goroutinesnum = 7 // можно получить путем подсчета из канала
-	out2 := make(chan string)
 	mu := &sync.Mutex{}
+	wg := &sync.WaitGroup{}
 	for v := range in {
 		s := strconv.Itoa(v.(int))
 		out1 := make(chan string)
-		go func(s string) {
+		go func(s string, out1 chan string) {
 			out1 <- DataSignerCrc32(s)
-		}(s)
-		go func(s string) {
+		}(s, out1)
+		wg.Add(1)
+		go func(s string, out chan interface{}, mu *sync.Mutex) {
+			defer wg.Done()
 			mu.Lock()
 			v := DataSignerMd5(s)
 			mu.Unlock()
-			out2 <- <-out1 + "~" + DataSignerCrc32(v)
-		}(s)
+			out <- <-out1 + "~" + DataSignerCrc32(v)
+		}(s, out, mu)
 	}
-	for i := 0; i < goroutinesnum; i++ {
-		out <- <-out2
-	}
+	wg.Wait()
 }
 
 func MultiHash(in, out chan interface{}) {
-	out2 := make(chan string)
+	wg := &sync.WaitGroup{}
 	for v := range in {
 		var temp chan string
 		for i := 0; i <= 5; i++ {
-			outt := make(chan string)
-			inn := temp
-			temp = outt
-			go func(s string, i int, in, out chan string) {
+			to := make(chan string)
+			from := temp
+			temp = to
+			wg.Add(1)
+			go func(s string, i int, from, to chan string, out chan interface{}) {
+				defer wg.Done()
 				v := DataSignerCrc32(strconv.Itoa(i) + s)
-				if in == nil {
-					out <- v
+				if from == nil {
+					to <- v
 				} else if i < 5 {
-					out <- <-in + v
+					to <- <-from + v
 				} else if i == 5 {
-					out2 <- <-in + v
+					out <- <-from + v
 				}
-			}(v.(string), i, inn, outt)
+			}(v.(string), i, from, to, out)
 		}
 	}
-	for i := 0; i < 7; i++ {
-		out <- <-out2
-	}
+	wg.Wait()
 }
 
 func CombineResults(in, out chan interface{}) {
