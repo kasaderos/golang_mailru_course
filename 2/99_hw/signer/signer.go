@@ -2,7 +2,6 @@ package main
 
 // сюда писать код
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,14 +36,14 @@ func SingleHash(in, out chan interface{}) {
 		go func(s string) {
 			out1 <- DataSignerCrc32(s)
 		}(s)
-		go func(s string) {
+		go func(s string, bw chan string) {
 			mu.Lock()
 			bw <- DataSignerMd5(s)
 			mu.Unlock()
-		}(s)
-		go func() {
+		}(s, bw)
+		go func(bw chan string) {
 			out2 <- DataSignerCrc32(<-bw)
-		}()
+		}(bw)
 	}
 	for i := 0; i < goroutinesnum; i++ {
 		out <- <-out1 + "~" + <-out2
@@ -53,26 +52,22 @@ func SingleHash(in, out chan interface{}) {
 
 func MultiHash(in, out chan interface{}) {
 	out2 := make(chan string)
-	workerInput := make(chan int)
 	for v := range in {
-		mu := &sync.Mutex{}
-		res := ""
+		var temp chan string
 		for i := 0; i <= 5; i++ {
-			go func(s string, th chan int) {
-				v := <-th
-				mu.Lock()
-				res += DataSignerCrc32(string(v) + s)
-				if v == 5 {
-					out2 <- res
+			outt := make(chan string)
+			inn := temp
+			temp = outt
+			go func(s string, i int, in, out chan string) {
+				v := DataSignerCrc32(strconv.Itoa(i) + s)
+				if in == nil {
+					out <- v
+				} else if i < 5 {
+					out <- <-in + v
+				} else if i == 5 {
+					out2 <- <-in + v
 				}
-				mu.Unlock()
-			}(v.(string), workerInput)
-		}
-	}
-	for i := 0; i < 7; i++ {
-		for k := 0; k <= 5; k++ {
-			fmt.Println(k)
-			workerInput <- k
+			}(v.(string), i, inn, outt)
 		}
 	}
 	for i := 0; i < 7; i++ {
