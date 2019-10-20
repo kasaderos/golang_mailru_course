@@ -27,34 +27,6 @@ func ExecutePipeline(jobs ...job) {
 
 func SingleHash(in, out chan interface{}) {
 	mu := &sync.Mutex{}
-<<<<<<< HEAD
-	const goroutinesNum = 7
-	workerInput1 := make(chan string)
-	workerInput2 := make(chan string)
-	ch1 := make(chan string)
-	ch3 := make(chan string)
-	for i := 0; i < goroutinesNum; i++ {
-		ch2 := make(chan string)
-		go func(s chan string, res chan string) {
-			res <- DataSignerCrc32(<-s)
-		}(workerInput1, ch1)
-		go func(s chan string, out chan string, mu *sync.Mutex) {
-			mu.Lock()
-			out <- DataSignerMd5(<-s)
-			mu.Unlock()
-		}(workerInput2, ch2, mu)
-		go func(res, in chan string) {
-			res <- DataSignerCrc32(<-in)
-		}(ch3, ch2)
-	}
-	for v := range in {
-		s := strconv.Itoa(v.(int))
-		workerInput1 <- s
-		workerInput2 <- s
-	}
-	for i := 0; i < goroutinesNum; i++ {
-		out <- <-ch1 + "~" + <-ch3
-=======
 	wg := &sync.WaitGroup{}
 	for v := range in {
 		betweenCh := make(chan string)
@@ -71,7 +43,6 @@ func SingleHash(in, out chan interface{}) {
 			result := DataSignerCrc32(md5)
 			out <- <-previos + "~" + result
 		}(value, out, betweenCh, mu)
->>>>>>> home3
 	}
 	wg.Wait()
 }
