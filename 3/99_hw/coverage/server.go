@@ -6,10 +6,12 @@ import (
 
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -82,12 +84,42 @@ func isInRow(q string, r Row) (res bool) {
 	b12 := strings.Contains(r.About, q)
 	b13 := strings.Contains(r.Registered, q)
 	b14 := strings.Contains(r.FavoriteFruit, q)
+	b15 := strings.Contains(r.Gender, q)
 	res = b1 || b2 || b3 || b4 || b5 || b6 || b7 ||
-		b8 || b9 || b10 || b11 || b12 || b13 || b14
+		b8 || b9 || b10 || b11 || b12 || b13 || b14 || b15
 	return
 }
 
-func findQuery(query string) []User {
+func sortUsers(users []User, orderFieldNum int, order int) {
+	sort.Slice(users, func(i, j int) bool {
+		switch orderFieldNum {
+		case 0:
+			if order == 1 {
+				return users[i].Name < users[j].Name
+			} else if order == -1 {
+				return users[i].Name > users[j].Name
+			}
+		case 1:
+			if order == 1 {
+				return users[i].Age < users[j].Age
+			} else if order == -1 {
+				return users[i].Age > users[j].Age
+			}
+		case 2:
+			if order == 1 {
+				return users[i].Gender < users[j].Gender
+			} else if order == -1 {
+				return users[i].Gender > users[j].Gender
+			}
+		}
+		if order == -1 {
+			return users[i].Id > users[j].Id
+		}
+		return users[i].Id < users[j].Id
+	})
+}
+
+func findQuery(query string, order int) []User {
 	var resQuery []User
 	for _, r := range root.Rows {
 		if isInRow(query, r) {
@@ -100,20 +132,38 @@ func findQuery(query string) []User {
 					Age:    r.Age,
 				},
 			)
-			break
 		}
 	}
 	return resQuery
+}
+
+var orderFields map[string]int = map[string]int{
+	"Name":   0,
+	"Age":    1,
+	"Gender": 2,
+	"Id":     3,
 }
 
 func SearchServer(w http.ResponseWriter, r *http.Request) {
 	_, err := ioutil.ReadAll(r.Body)
 	check(err)
 	query := r.URL.Query().Get("query")
-	results := findQuery(query)
+	orderField := r.URL.Query().Get("order_field")
+	order, errconv := strconv.Atoi(r.URL.Query().Get("order_by"))
+	if errconv != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, "order is not int")
+		return
+	}
+
+	results := findQuery(query, order)
+	fmt.Println("results len", len(results))
+	sortUsers(results, orderFields[orderField], order)
 
 	data, err := json.Marshal(results)
 	check(err)
+	sdata := string(data)
+
 	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, string(data))
+	io.WriteString(w, sdata)
 }
