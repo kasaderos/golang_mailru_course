@@ -6,7 +6,6 @@ import (
 
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var filename string = "dataset.xml"
@@ -127,7 +127,6 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.HasPrefix(r.URL.String(), "/yahoo/") {
-		fmt.Println(r.URL.String())
 		w.WriteHeader(http.StatusBadRequest)
 		errjson := `{"Error": "error YAHOO"}`
 		io.WriteString(w, errjson)
@@ -140,7 +139,10 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query().Get("query")
 	orderField := r.URL.Query().Get("order_field")
-	if orderField != "Name" {
+	if query == "long request" {
+		time.Sleep(time.Second) // ищем этот текст
+	}
+	if orderField != "Name" { // только по имени
 		w.WriteHeader(http.StatusBadRequest)
 		errjson := `{"Error": "ErrorBadOrderField"}`
 		io.WriteString(w, errjson)
@@ -150,7 +152,10 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	results := findQuery(query)
 	sortUsers(results, order)
-	data, _ := json.Marshal(results[:limit])
+	if limit > 25 {
+		results = results[:limit]
+	}
+	data, _ := json.Marshal(results)
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, string(data))
 }

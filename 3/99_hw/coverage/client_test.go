@@ -26,8 +26,21 @@ func TestLimitAndOffsetFindUsers(t *testing.T) {
 
 func TestTimeoutServer(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
-	//	client.Do()
-	t.Errorf("fail")
+	client := SearchClient{
+		AccessToken: "authorization",
+		URL:         ts.URL,
+	}
+	err, _ := client.FindUsers(SearchRequest{
+		Limit:      30000,
+		Offset:     0,
+		Query:      "long request",
+		OrderField: "Name",
+		OrderBy:    OrderByDesc,
+	})
+
+	if err != nil {
+		t.Errorf("timeout test failed")
+	}
 	ts.Close()
 }
 func TestNilRequest(t *testing.T) {
@@ -138,24 +151,24 @@ func TestDataFindUsers(t *testing.T) {
 		URL:         ts.URL,
 	}
 	err, _ := client.FindUsers(SearchRequest{
-		Limit:      10,
-		Offset:     0,
-		Query:      "EXOSIS",
-		OrderField: "Name",
-		OrderBy:    0,
-	})
-	err2, _ := client.FindUsers(SearchRequest{
 		Limit:      30,
 		Offset:     0,
 		Query:      "male",
 		OrderField: "Name",
-		OrderBy:    -1,
+		OrderBy:    OrderByAsIs,
+	})
+	err2, _ := client.FindUsers(SearchRequest{
+		Limit:      10,
+		Offset:     0,
+		Query:      "Dillard",
+		OrderField: "Name",
+		OrderBy:    OrderByAsc,
 	})
 	if err == nil {
 		t.Errorf("NextPage true fail")
 	}
 	if err2 == nil {
-		t.Errorf("Normal test with next page false failed")
+		t.Errorf("Normal test without next page failed")
 	}
 	ts.Close()
 }
