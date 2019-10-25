@@ -8,52 +8,154 @@ import (
 	"testing"
 )
 
-func TestFindUsers(t *testing.T) {
+func TestLimitAndOffsetFindUsers(t *testing.T) {
+	client := SearchClient{
+		AccessToken: "authorization",
+		URL:         "serverUrl",
+	}
+	err1, _ := client.FindUsers(SearchRequest{
+		Limit: -1,
+	})
+	err2, _ := client.FindUsers(SearchRequest{
+		Offset: -1,
+	})
+	if err1 != nil && err2 != nil {
+		t.Errorf("limit and offset test fail")
+	}
+}
 
-	initDB()
+func TestTimeoutServer(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
+	//	client.Do()
+	t.Errorf("fail")
+	ts.Close()
+}
+func TestNilRequest(t *testing.T) {
+	client := SearchClient{
+		AccessToken: "authorization",
+		URL:         "",
+	}
+	nilReq := SearchRequest{}
+	err, _ := client.FindUsers(nilReq)
+	if err != nil {
+		t.Errorf("Return not nil error")
+	}
+}
+
+func TestBadRequest(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
+	client := SearchClient{
+		AccessToken: "authorization",
+		URL:         ts.URL + "/yahoo/",
+	}
+	err, _ := client.FindUsers(SearchRequest{
+		Limit:      300,
+		Offset:     0,
+		Query:      "EXOSIS",
+		OrderField: "Name",
+		OrderBy:    OrderByAsIs,
+	})
+	if err != nil {
+		t.Errorf("fail BadRequest")
+	}
+	client.URL = ts.URL
+	err2, _ := client.FindUsers(SearchRequest{
+		Limit:      300,
+		Offset:     0,
+		Query:      "EXOSIS",
+		OrderField: "Bad field",
+		OrderBy:    OrderByAsIs,
+	})
+	if err2 != nil {
+		t.Errorf("fail BadRequest BadOrderField")
+	}
+	client.URL = ts.URL + "/google/"
+	err3, _ := client.FindUsers(SearchRequest{
+		Limit:      300,
+		Offset:     0,
+		Query:      "EXOSIS",
+		OrderField: "Name",
+		OrderBy:    OrderByAsIs,
+	})
+	if err3 != nil {
+		t.Errorf("fail BadRequest unknown error")
+	}
+}
+func TestServerAndAuthError(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
 	client := SearchClient{
 		AccessToken: "authorization",
 		URL:         ts.URL,
 	}
-	client2 := SearchClient{
+	filename = "badxml.xml"
+	err, _ := client.FindUsers(SearchRequest{
+		Limit:      300,
+		Offset:     0,
+		Query:      "EXOSIS",
+		OrderField: "Name",
+		OrderBy:    OrderByAsIs,
+	})
+	if err != nil {
+		t.Errorf("fail ServerError")
+	}
+	filename = "dataset.xml"
+	client.AccessToken = "bad token"
+	err2, _ := client.FindUsers(SearchRequest{
+		Limit:      300,
+		Offset:     0,
+		Query:      "EXOSIS",
+		OrderField: "Name",
+		OrderBy:    OrderByAsIs,
+	})
+	if err2 != nil {
+		t.Errorf("fail BadAccessToken test")
+	}
+	ts.Close()
+}
+
+func TestBadJsonResponse(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(GiveBadJsonServer))
+	client := SearchClient{
 		AccessToken: "authorization",
-		URL:         "http://127.0.0.1:8080/badurl",
+		URL:         ts.URL,
 	}
-	testCases := []SearchRequest{
-		SearchRequest{
-			Limit:      10,
-			Offset:     0,
-			Query:      "EXOSIS",
-			OrderField: "id",
-			OrderBy:    0,
-		},
-		SearchRequest{
-			Limit:      27,
-			Offset:     -1,
-			Query:      "EXOSIS",
-			OrderField: "id",
-			OrderBy:    1,
-		},
-		SearchRequest{
-			Limit:      -1,
-			Offset:     0,
-			Query:      "EXOSIS",
-			OrderField: "id",
-			OrderBy:    -1,
-		},
-		SearchRequest{
-			Limit:      25,
-			Offset:     0,
-			Query:      "male",
-			OrderField: "Name",
-			OrderBy:    0,
-		},
+	err, _ := client.FindUsers(SearchRequest{
+		Limit:      25,
+		Offset:     0,
+		Query:      "",
+		OrderField: "Name",
+		OrderBy:    1,
+	})
+	if err != nil {
+		t.Errorf("fail error Unmarshal result json")
 	}
-	client.FindUsers(testCases[0])
-	client.FindUsers(testCases[1])
-	client.FindUsers(testCases[2])
-	client.FindUsers(testCases[3])
-	client2.FindUsers(testCases[0])
+	ts.Close()
+}
+func TestDataFindUsers(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
+	client := SearchClient{
+		AccessToken: "authorization",
+		URL:         ts.URL,
+	}
+	err, _ := client.FindUsers(SearchRequest{
+		Limit:      10,
+		Offset:     0,
+		Query:      "EXOSIS",
+		OrderField: "Name",
+		OrderBy:    0,
+	})
+	err2, _ := client.FindUsers(SearchRequest{
+		Limit:      30,
+		Offset:     0,
+		Query:      "male",
+		OrderField: "Name",
+		OrderBy:    -1,
+	})
+	if err == nil {
+		t.Errorf("NextPage true fail")
+	}
+	if err2 == nil {
+		t.Errorf("Normal test with next page false failed")
+	}
 	ts.Close()
 }
