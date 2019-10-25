@@ -16,6 +16,8 @@ import (
 	"strings"
 )
 
+var filename string = "dataset.xml"
+
 type Row struct {
 	XMLName       xml.Name `xml:"row"`
 	Id            int      `xml:"id"  `
@@ -43,127 +45,112 @@ type Root struct {
 	Rows    []Row    `xml:"row"`
 }
 
-type ResponseData struct {
-	Users []User
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
-func readFromFile(filename string) (xmlData []byte) {
-	xml, err := os.Open(filename)
-	defer xml.Close()
-	check(err)
-	xmlData, _ = ioutil.ReadAll(xml)
-	return
-}
-
-var root *Root
-
-func initDB() {
-	xmlData := readFromFile("dataset.xml")
-	root = &Root{}
-	err := xml.Unmarshal(xmlData, root)
-	check(err)
-}
 func isInRow(q string, r Row) (res bool) {
-	b1 := strings.Contains(r.Guid, q)
-	b2 := strings.Contains(r.Balance, q)
-	b3 := strings.Contains(r.Picture, q)
-	b4 := strings.Contains(strconv.Itoa(r.Age), q)
-	b5 := strings.Contains(r.EyeColor, q)
-	b6 := strings.Contains(r.First_name, q)
-	b7 := strings.Contains(r.Last_name, q)
-	b8 := strings.Contains(r.Company, q)
-	b9 := strings.Contains(r.Email, q)
-	b10 := strings.Contains(r.Phone, q)
-	b11 := strings.Contains(r.Address, q)
-	b12 := strings.Contains(r.About, q)
-	b13 := strings.Contains(r.Registered, q)
-	b14 := strings.Contains(r.FavoriteFruit, q)
-	b15 := strings.Contains(r.Gender, q)
-	res = b1 || b2 || b3 || b4 || b5 || b6 || b7 ||
-		b8 || b9 || b10 || b11 || b12 || b13 || b14 || b15
-	return
+	if strings.Contains(r.Guid, q) ||
+		strings.Contains(r.Balance, q) ||
+		strings.Contains(r.Picture, q) ||
+		strings.Contains(strconv.Itoa(r.Age), q) ||
+		strings.Contains(r.EyeColor, q) ||
+		strings.Contains(r.First_name, q) ||
+		strings.Contains(r.Last_name, q) ||
+		strings.Contains(r.Company, q) ||
+		strings.Contains(r.Email, q) ||
+		strings.Contains(r.Phone, q) ||
+		strings.Contains(r.Address, q) ||
+		strings.Contains(r.About, q) ||
+		strings.Contains(r.Registered, q) ||
+		strings.Contains(r.FavoriteFruit, q) ||
+		strings.Contains(r.Gender, q) {
+		return true
+	}
+	return false
 }
 
-func sortUsers(users []User, orderFieldNum int, order int) {
+func sortUsers(users []User, order string) {
 	sort.Slice(users, func(i, j int) bool {
-		switch orderFieldNum {
-		case 0:
-			if order == 1 {
-				return users[i].Name < users[j].Name
-			} else if order == -1 {
-				return users[i].Name > users[j].Name
-			}
-		case 1:
-			if order == 1 {
-				return users[i].Age < users[j].Age
-			} else if order == -1 {
-				return users[i].Age > users[j].Age
-			}
-		case 2:
-			if order == 1 {
-				return users[i].Gender < users[j].Gender
-			} else if order == -1 {
-				return users[i].Gender > users[j].Gender
-			}
+		if order == "-1" {
+			return users[i].Name > users[j].Name
 		}
-		if order == -1 {
-			return users[i].Id > users[j].Id
-		}
-		return users[i].Id < users[j].Id
+		return users[i].Name < users[j].Name
 	})
 }
 
-func findQuery(query string, order int) []User {
+func getRows() []Row {
+	file, err := os.Open(filename)
+	if err != nil {
+		panic("not found file " + filename)
+	}
+	xmlData, _ := ioutil.ReadAll(file)
+	file.Close()
+	root := &Root{}
+	xml.Unmarshal(xmlData, root)
+	return root.Rows
+}
+
+func appendUser(resQuery []User, r Row) []User {
+	resQuery = append(resQuery,
+		User{
+			Id:     r.Id,
+			Gender: r.Gender,
+			About:  r.About,
+			Name:   r.First_name + r.Last_name,
+			Age:    r.Age,
+		},
+	)
+	return resQuery
+}
+
+func findQuery(query string) []User {
 	var resQuery []User
-	for _, r := range root.Rows {
+	for _, r := range getRows() {
 		if isInRow(query, r) {
-			resQuery = append(resQuery,
-				User{
-					Id:     r.Id,
-					Gender: r.Gender,
-					About:  r.About,
-					Name:   r.First_name + r.Last_name,
-					Age:    r.Age,
-				},
-			)
+			resQuery = appendUser(resQuery, r)
 		}
 	}
 	return resQuery
 }
 
-var orderFields map[string]int = map[string]int{
-	"Name":   0,
-	"Age":    1,
-	"Gender": 2,
-	"Id":     3,
+func GiveBadJsonServer(w http.ResponseWriter, r *http.Request) {
+	data := `{"id": 1, "name":"Marshal me please"}`
+	w.WriteHeader(http.StatusOK)
+	io.WriteString(w, string(data))
 }
 
 func SearchServer(w http.ResponseWriter, r *http.Request) {
-	_, err := ioutil.ReadAll(r.Body)
-	check(err)
-	query := r.URL.Query().Get("query")
-	orderField := r.URL.Query().Get("order_field")
-	order, errconv := strconv.Atoi(r.URL.Query().Get("order_by"))
-	if errconv != nil {
+	defer func() {
+		if r := recover(); r != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}()
+	if r.Header.Get("AccessToken") != "authorization" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if strings.HasPrefix(r.URL.String(), "/yahoo/") {
+		fmt.Println(r.URL.String())
 		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, "order is not int")
+		errjson := `{"Error": "error YAHOO"}`
+		io.WriteString(w, errjson)
+		return
+	}
+	if strings.HasPrefix(r.URL.String(), "/google/") {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	results := findQuery(query, order)
-	fmt.Println("results len", len(results))
-	sortUsers(results, orderFields[orderField], order)
-
-	data, err := json.Marshal(results)
-	check(err)
-	sdata := string(data)
-
+	query := r.URL.Query().Get("query")
+	orderField := r.URL.Query().Get("order_field")
+	if orderField != "Name" {
+		w.WriteHeader(http.StatusBadRequest)
+		errjson := `{"Error": "ErrorBadOrderField"}`
+		io.WriteString(w, errjson)
+		return
+	}
+	order := r.URL.Query().Get("order_by")
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	results := findQuery(query)
+	sortUsers(results, order)
+	data, _ := json.Marshal(results[:limit])
 	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, sdata)
+	io.WriteString(w, string(data))
 }
