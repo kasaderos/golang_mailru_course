@@ -145,7 +145,6 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query().Get("query")
 	orderField := r.URL.Query().Get("order_field")
-
 	if query == "long request" {
 		time.Sleep(time.Second) // ищем этот текст
 	}
