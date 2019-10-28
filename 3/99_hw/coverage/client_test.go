@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"testing"
 )
 
@@ -152,24 +153,29 @@ func TestDataFindUsers(t *testing.T) {
 		AccessToken: "authorization",
 		URL:         ts.URL,
 	}
-	_, err := client.FindUsers(SearchRequest{
+	res, err := client.FindUsers(SearchRequest{
 		Limit:      30,
 		Offset:     0,
 		Query:      "male",
 		OrderField: "Name",
 		OrderBy:    OrderByAsIs,
 	})
-	_, err2 := client.FindUsers(SearchRequest{
+	expected, _ := findQuery("male")
+	expected = expected[:26]
+	res2, err2 := client.FindUsers(SearchRequest{
 		Limit:      10,
 		Offset:     3,
 		Query:      "Dillard",
 		OrderField: "Name",
 		OrderBy:    OrderByAsc,
 	})
-	if err != nil {
+	expected2, _ := findQuery("Dillard")
+	sortUsers(expected2, "1")
+	expected = expected[3:]
+	if err != nil || !reflect.DeepEqual(res.Users, expected) {
 		t.Errorf("NextPage true fail")
 	}
-	if err2 != nil {
+	if err2 != nil || !reflect.DeepEqual(res2.Users, expected2) {
 		t.Errorf("Normal test without next page failed")
 	}
 	ts.Close()
