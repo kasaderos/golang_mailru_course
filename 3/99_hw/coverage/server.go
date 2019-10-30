@@ -2,8 +2,6 @@ package main
 
 // тут писать код тестов
 import (
-	// "io"
-
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -14,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var filename string = "dataset.xml"
@@ -75,16 +74,19 @@ func sortUsers(users []User, order string) {
 	})
 }
 
-func getRows() []Row {
+func getRows() ([]Row, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		panic("not found file " + filename)
+		return nil, fmt.Errorf("can't open file %v", err)
 	}
 	xmlData, _ := ioutil.ReadAll(file)
 	file.Close()
 	root := &Root{}
-	xml.Unmarshal(xmlData, root)
-	return root.Rows
+	errunmarshal := xml.Unmarshal(xmlData, root)
+	if errunmarshal != nil {
+		return nil, fmt.Errorf("can't unmarshal %v", errunmarshal)
+	}
+	return root.Rows, nil
 }
 
 func appendUser(resQuery []User, r Row) []User {
@@ -100,14 +102,18 @@ func appendUser(resQuery []User, r Row) []User {
 	return resQuery
 }
 
-func findQuery(query string) []User {
+func findQuery(query string) ([]User, error) {
 	var resQuery []User
-	for _, r := range getRows() {
+	rows, err := getRows()
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
 		if isInRow(query, r) {
 			resQuery = appendUser(resQuery, r)
 		}
 	}
-	return resQuery
+	return resQuery, nil
 }
 
 func GiveBadJsonServer(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +133,6 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.HasPrefix(r.URL.String(), "/yahoo/") {
-		fmt.Println(r.URL.String())
 		w.WriteHeader(http.StatusBadRequest)
 		errjson := `{"Error": "error YAHOO"}`
 		io.WriteString(w, errjson)
@@ -140,17 +145,32 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query().Get("query")
 	orderField := r.URL.Query().Get("order_field")
-	if orderField != "Name" {
+	if query == "long request" {
+		time.Sleep(time.Second) // ищем этот текст
+	}
+	if orderField != "Name" { // только по имени
 		w.WriteHeader(http.StatusBadRequest)
 		errjson := `{"Error": "ErrorBadOrderField"}`
 		io.WriteString(w, errjson)
 		return
 	}
 	order := r.URL.Query().Get("order_by")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	results := findQuery(query)
+	limit, errconv := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, errconv2 := strconv.Atoi(r.URL.Query().Get("offset"))
+	if errconv != nil || errconv2 != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	results, errquery := findQuery(query)
+	if errquery != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	sortUsers(results, order)
-	data, _ := json.Marshal(results[:limit])
+	if limit > 25 {
+		results = results[limit+offset:]
+	}
+	data, _ := json.Marshal(results)
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, string(data))
 }
