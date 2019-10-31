@@ -235,18 +235,22 @@ func startTaskBot(ctx context.Context) error {
 		} else if cmd == "/my" {
 			for _, t := range tasks {
 				if t.eUser.name == update.Message.From.UserName {
-					s := strconv.Itoa(t.id) + ". " + t.text + " by @" +
+					bot.Send(tgbotapi.NewMessage(
+						update.Message.Chat.ID,
+						strconv.Itoa(t.id) + ". " + t.text + " by @" +
 						t.vendor.name + "\n/unassign_" + strconv.Itoa(t.id) +
 						" /resolve_" + strconv.Itoa(t.id)
-					sendMessage(bot, update.Message.Chat.ID, s)
+					))
 				}
 			}
 		} else if cmd == "/owner" {
 			for _, t := range tasks {
 				if t.vendor.name == update.Message.From.UserName {
-					s := strconv.Itoa(t.id) + ". " + t.text + " by @" +
+					bot.Send(tgbotapi.NewMessage(
+						update.Message.Chat.ID,
+						strconv.Itoa(t.id) + ". " + t.text + " by @" +
 						t.vendor.name + "\n/assign_" + strconv.Itoa(t.id)
-					sendMessage(bot, update.Message.Chat.ID, s)
+					))
 				}
 			}
 		}
