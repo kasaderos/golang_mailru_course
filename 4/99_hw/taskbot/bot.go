@@ -45,26 +45,6 @@ func findById(id int) int {
 	return -1
 }
 
-func isAssignedMe(m string, users []User) bool {
-	for _, u := range users {
-		if m == u.name && !u.vendor {
-			return true
-		}
-	}
-	return false
-}
-
-func removeFromTaskUsername(v string, users []User) ([]User, bool) {
-	for i, u := range users {
-		if u.name == v {
-			L := len(users)
-			users[L-1], users[i] = users[i], users[L-1]
-			return users[:L-1], false
-		}
-	}
-	return users, true
-}
-
 func getCmdAndText(s string) (string, string) {
 	v := strings.Split(s, " ")
 	if v == nil {
@@ -77,18 +57,13 @@ func getCmdAndText(s string) (string, string) {
 	return "", ""
 }
 
-func sendMessage(bot *tgbotapi.BotAPI, chatId int64, message string) {
-	bot.Send(tgbotapi.NewMessage(
-		chatId,
-		message,
-	))
-}
-
 func caseBackslashTasks(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	if len(tasks) == 0 {
-		sendMessage(bot, update.Message.Chat.ID, "Нет задач")
+		bot.Send(tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			"Нет задач",
+		))
 	} else {
-		fmt.Println(tasks)
 		s := ""
 		for i, task := range tasks {
 			id := strconv.Itoa(task.id)
@@ -106,16 +81,152 @@ func caseBackslashTasks(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 				s += "\n\n"
 			}
 		}
-		sendMessage(bot, update.Message.Chat.ID, s)
+		bot.Send(tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			s,
+		))
 	}
 }
 
+func addNewTask(bot *tgbotapi.BotAPI, update tgbotapi.Update, text string) {
+	t := Task{
+		id:   autoinc,
+		text: text,
+	}
+	autoinc++
+	t.vendor = &User{
+		name:   update.Message.From.UserName,
+		chatId: update.Message.Chat.ID,
+		vendor: true,
+	}
+	t.eUser = t.vendor
+	tasks = append(tasks, t)
+	bot.Send(tgbotapi.NewMessage(
+		update.Message.Chat.ID,
+		"Задача \""+t.text+"\" создана, id="+strconv.Itoa(t.id),
+	))
+}
+
+func assignUser(bot *tgbotapi.BotAPI, update tgbotapi.Update, cmd string) {
+	cmds := strings.Split(cmd, "_")
+	id, err := strconv.Atoi(cmds[1])
+	if err != nil {
+		bot.Send(tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			"assign with unknown task id",
+		))
+	}
+	ind := findById(id)
+	if ind == -1 {
+		bot.Send(tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			"can't find task with task id "+strconv.Itoa(id),
+		))
+	} else {
+		// уведомляем
+		if tasks[ind].eUser != nil {
+			bot.Send(tgbotapi.NewMessage(
+				tasks[ind].eUser.chatId,
+				"Задача \""+tasks[ind].text+"\" назначена на @"+update.Message.From.UserName,
+			))
+		} else {
+			bot.Send(tgbotapi.NewMessage(
+				tasks[ind].vendor.chatId,
+				"Задача \""+tasks[ind].text+"\" назначена на @"+update.Message.From.UserName,
+			))
+		}
+		tasks[ind].eUser = &User{
+			chatId: update.Message.Chat.ID,
+			name:   update.Message.From.UserName,
+		}
+		bot.Send(tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			"Задача \""+tasks[ind].text+"\" назначена на вас",
+		))
+	}
+}
+
+func unassignUser(bot *tgbotapi.BotAPI, update tgbotapi.Update, cmd string) {
+	cmds := strings.Split(cmd, "_")
+	id, err := strconv.Atoi(cmds[1])
+	if err != nil {
+		bot.Send(tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			"unassign with unknown task id",
+		))
+	}
+	ind := findById(id)
+	if tasks[ind].eUser.name != update.Message.From.UserName {
+		bot.Send(tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			"Задача не на вас",
+		))
+	} else {
+		tasks[ind].eUser = nil
+		bot.Send(tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			"Принято",
+		))
+		bot.Send(tgbotapi.NewMessage(
+			tasks[ind].vendor.chatId,
+			"Задача \""+tasks[ind].text+"\" осталась без исполнителя",
+		))
+	}
+}
+
+func resolveTask(bot *tgbotapi.BotAPI, update tgbotapi.Update, cmd string) {
+	cmds := strings.Split(cmd, "_")
+	id, err := strconv.Atoi(cmds[1])
+	if err != nil {
+		bot.Send(tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			"resolve with unknown task id",
+		))
+	}
+	ind := findById(id)
+	bot.Send(tgbotapi.NewMessage(
+		tasks[ind].vendor.chatId,
+		"Задача \""+tasks[ind].text+"\" выполнена @"+update.Message.From.UserName,
+	))
+
+	bot.Send(tgbotapi.NewMessage(
+		update.Message.Chat.ID,
+		"Задача \""+tasks[ind].text+"\" выполнена",
+	))
+	L := len(tasks)
+	if L > 0 {
+		tasks[L-1], tasks[ind] = tasks[ind], tasks[L-1]
+		tasks = tasks[:L-1]
+	}
+}
+func backslashMyCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
+	for _, t := range tasks {
+		if t.eUser.name == update.Message.From.UserName {
+			bot.Send(tgbotapi.NewMessage(
+				update.Message.Chat.ID,
+				strconv.Itoa(t.id)+". "+t.text+" by @"+
+					t.vendor.name+"\n/unassign_"+strconv.Itoa(t.id)+
+					" /resolve_"+strconv.Itoa(t.id),
+			))
+		}
+	}
+}
+func backslashOwnerCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
+	for _, t := range tasks {
+		if t.vendor.name == update.Message.From.UserName {
+			bot.Send(tgbotapi.NewMessage(
+				update.Message.Chat.ID,
+				strconv.Itoa(t.id)+". "+t.text+" by @"+
+					t.vendor.name+"\n/assign_"+strconv.Itoa(t.id),
+			))
+		}
+	}
+}
 func startTaskBot(ctx context.Context) error {
 	bot, err := tgbotapi.NewBotAPI(BotToken)
 	if err != nil {
 		panic(err)
 	}
-
 	// bot.Debug = true
 	fmt.Printf("Authorized on account %s\n", bot.Self.UserName)
 
@@ -130,129 +241,25 @@ func startTaskBot(ctx context.Context) error {
 	for update := range updates {
 		cmd, text := getCmdAndText(update.Message.Text)
 		if cmd == "" {
-			sendMessage(bot, update.Message.Chat.ID, "Bad command")
-
+			bot.Send(tgbotapi.NewMessage(
+				update.Message.Chat.ID,
+				"Bad command",
+			))
 		}
 		if cmd == "/tasks" {
 			caseBackslashTasks(bot, update)
 		} else if cmd == "/new" {
-			t := Task{
-				id:   autoinc,
-				text: text,
-			}
-			autoinc++
-			t.vendor = &User{
-				name:   update.Message.From.UserName,
-				chatId: update.Message.Chat.ID,
-				vendor: true,
-			}
-			t.eUser = t.vendor
-			tasks = append(tasks, t)
-			bot.Send(tgbotapi.NewMessage(
-				update.Message.Chat.ID,
-				"Задача \""+t.text+"\" создана, id="+strconv.Itoa(t.id),
-			))
+			addNewTask(bot, update, text)
 		} else if strings.HasPrefix(cmd, "/assign_") {
-			cmds := strings.Split(cmd, "_")
-			id, err := strconv.Atoi(cmds[1])
-			if err != nil {
-				bot.Send(tgbotapi.NewMessage(
-					update.Message.Chat.ID,
-					"assign with unknown task id",
-				))
-			}
-			ind := findById(id)
-			if ind == -1 {
-				sendMessage(bot, update.Message.Chat.ID,
-					"can't find task with task id "+strconv.Itoa(id))
-			} else {
-				// уведомляем
-				if tasks[ind].eUser != nil {
-					s := "Задача \"" + tasks[ind].text + "\" назначена на @" + update.Message.From.UserName
-					sendMessage(bot, tasks[ind].eUser.chatId, s)
-				} else {
-					s := "Задача \"" + tasks[ind].text + "\" назначена на @" + update.Message.From.UserName
-					sendMessage(bot, tasks[ind].vendor.chatId, s)
-				}
-				tasks[ind].eUser = &User{
-					chatId: update.Message.Chat.ID,
-					name:   update.Message.From.UserName,
-				}
-				s := "Задача \"" + tasks[ind].text + "\" назначена на вас"
-				sendMessage(bot, update.Message.Chat.ID, s)
-
-			}
+			assignUser(bot, update, cmd)
 		} else if strings.HasPrefix(cmd, "/unassign_") {
-			cmds := strings.Split(cmd, "_")
-			id, err := strconv.Atoi(cmds[1])
-			if err != nil {
-				bot.Send(tgbotapi.NewMessage(
-					update.Message.Chat.ID,
-					"unassign with unknown task id",
-				))
-			}
-			ind := findById(id)
-			if tasks[ind].eUser.name != update.Message.From.UserName {
-				bot.Send(tgbotapi.NewMessage(
-					update.Message.Chat.ID,
-					"Задача не на вас",
-				))
-			} else {
-				tasks[ind].eUser = nil
-				bot.Send(tgbotapi.NewMessage(
-					update.Message.Chat.ID,
-					"Принято",
-				))
-				bot.Send(tgbotapi.NewMessage(
-					tasks[ind].vendor.chatId,
-					"Задача \""+tasks[ind].text+"\" осталась без исполнителя",
-				))
-			}
+			unassignUser(bot, update, cmd)
 		} else if strings.HasPrefix(cmd, "/resolve_") {
-			cmds := strings.Split(cmd, "_")
-			id, err := strconv.Atoi(cmds[1])
-			if err != nil {
-				bot.Send(tgbotapi.NewMessage(
-					update.Message.Chat.ID,
-					"resolve with unknown task id",
-				))
-			}
-			ind := findById(id)
-			bot.Send(tgbotapi.NewMessage(
-				tasks[ind].vendor.chatId,
-				"Задача \""+tasks[ind].text+"\" выполнена @"+update.Message.From.UserName,
-			))
-
-			bot.Send(tgbotapi.NewMessage(
-				update.Message.Chat.ID,
-				"Задача \""+tasks[ind].text+"\" выполнена",
-			))
-			L := len(tasks)
-			if L >= 1 {
-				tasks[L-1], tasks[ind] = tasks[ind], tasks[L-1]
-				tasks = tasks[:L-1]
-			}
+			resolveTask(bot, update, cmd)
 		} else if cmd == "/my" {
-			for _, t := range tasks {
-				if t.eUser.name == update.Message.From.UserName {
-					bot.Send(tgbotapi.NewMessage(
-						update.Message.Chat.ID,
-						strconv.Itoa(t.id) + ". " + t.text + " by @" +
-						t.vendor.name + "\n/unassign_" + strconv.Itoa(t.id) +
-						" /resolve_" + strconv.Itoa(t.id)
-					))
-				}
-			}
+			backslashMyCommand(bot, update)
 		} else if cmd == "/owner" {
-			for _, t := range tasks {
-				if t.vendor.name == update.Message.From.UserName {
-					bot.Send(tgbotapi.NewMessage(
-						update.Message.Chat.ID,
-						strconv.Itoa(t.id) + ". " + t.text + " by @" +
-						t.vendor.name + "\n/assign_" + strconv.Itoa(t.id)
-					))
-				}
-			}
+			backslashOwnerCommand(bot, update)
 		}
 	}
 	return nil
