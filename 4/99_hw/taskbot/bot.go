@@ -123,7 +123,6 @@ func assignUser(bot *tgbotapi.BotAPI, update tgbotapi.Update, cmd string) {
 			"can't find task with task id "+strconv.Itoa(id),
 		))
 	} else {
-		// уведомляем
 		if tasks[ind].eUser != nil {
 			bot.Send(tgbotapi.NewMessage(
 				tasks[ind].eUser.chatId,
