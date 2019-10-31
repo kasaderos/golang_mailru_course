@@ -31,9 +31,9 @@ type User struct {
 type Task struct {
 	id         int
 	text       string
-	users      []User
+	eUser      *User
 	isResolved bool
-	vendor     User
+	vendor     *User
 }
 
 func findById(id int) int {
@@ -84,54 +84,32 @@ func sendMessage(bot *tgbotapi.BotAPI, chatId int64, message string) {
 	))
 }
 
-func sendTask(task Task, bot *tgbotapi.BotAPI, update tgbotapi.Update) {
-	id := strconv.Itoa(task.id)
-	if isAssignedMe(update.Message.From.UserName, task.users) {
-		s := id + ". " + task.text + " by " + "@" + task.vendor.name +
-			"\nassignee: я\n/unassign_" + id + " /resolve_" + id
-		sendMessage(bot, update.Message.Chat.ID, s)
-	} else if task.users != nil {
-		s := ""
-		for _, u := range task.users {
-			if !u.vendor {
-				s += u.name + ", "
-			}
-		}
-
-		if s == "" {
-			m := strconv.Itoa(task.id) + ". " + task.text + " by " + "@" + task.vendor.name +
-				"\n/assign_" + strconv.Itoa(task.id)
-			sendMessage(bot, update.Message.Chat.ID, m)
-		} else if len(s) > 2 {
-			s = s[:(len(s) - 2)]
-			res := strconv.Itoa(task.id) + ". " + task.text + " by " + "@" + task.vendor.name +
-				"\nassignee: @" + s
-			sendMessage(bot, update.Message.Chat.ID, res)
-		}
-	}
-}
-
 func caseBackslashTasks(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	if len(tasks) == 0 {
 		sendMessage(bot, update.Message.Chat.ID, "Нет задач")
 	} else {
-		for _, task := range tasks {
-			sendTask(task, bot, update)
+		fmt.Println(tasks)
+		s := ""
+		for i, task := range tasks {
+			id := strconv.Itoa(task.id)
+			if update.Message.From.UserName == task.eUser.name && !task.eUser.vendor {
+				s += id + ". " + task.text + " by " + "@" + task.vendor.name +
+					"\nassignee: я\n/unassign_" + id + " /resolve_" + id
+			} else if task.eUser.name != task.vendor.name {
+				s += strconv.Itoa(task.id) + ". " + task.text + " by " + "@" + task.vendor.name +
+					"\nassignee: @" + task.eUser.name
+			} else {
+				s += strconv.Itoa(task.id) + ". " + task.text + " by " + "@" + task.vendor.name +
+					"\n/assign_" + strconv.Itoa(task.id)
+			}
+			if i < len(tasks)-1 {
+				s += "\n\n"
+			}
 		}
+		sendMessage(bot, update.Message.Chat.ID, s)
 	}
 }
 
-func removeUserFromTask(name string, task *Task) {
-	for i, u := range task.users {
-		if u.name == name {
-			L := len(task.users)
-			task.users[L-1], task.users[i] = task.users[i], task.users[L-1]
-			task.users = task.users[:L-1]
-			return
-		}
-	}
-
-}
 func startTaskBot(ctx context.Context) error {
 	bot, err := tgbotapi.NewBotAPI(BotToken)
 	if err != nil {
@@ -163,12 +141,12 @@ func startTaskBot(ctx context.Context) error {
 				text: text,
 			}
 			autoinc++
-			t.vendor = User{
+			t.vendor = &User{
 				name:   update.Message.From.UserName,
 				chatId: update.Message.Chat.ID,
 				vendor: true,
 			}
-			t.users = append(t.users, t.vendor)
+			t.eUser = t.vendor
 			tasks = append(tasks, t)
 			bot.Send(tgbotapi.NewMessage(
 				update.Message.Chat.ID,
@@ -189,19 +167,16 @@ func startTaskBot(ctx context.Context) error {
 					"can't find task with task id "+strconv.Itoa(id))
 			} else {
 				// уведомляем
-				if len(tasks[ind].users) > 0 {
-					for _, u := range tasks[ind].users {
-						s := "Задача \"" + tasks[ind].text + "\" назначена на @" + update.Message.From.UserName
-						sendMessage(bot, u.chatId, s)
-					}
+				if tasks[ind].eUser != nil {
+					s := "Задача \"" + tasks[ind].text + "\" назначена на @" + update.Message.From.UserName
+					sendMessage(bot, tasks[ind].eUser.chatId, s)
 				} else {
 					s := "Задача \"" + tasks[ind].text + "\" назначена на @" + update.Message.From.UserName
 					sendMessage(bot, tasks[ind].vendor.chatId, s)
 				}
-				tasks[ind].users = []User{
-					User{
-						chatId: update.Message.Chat.ID,
-						name:   update.Message.From.UserName},
+				tasks[ind].eUser = &User{
+					chatId: update.Message.Chat.ID,
+					name:   update.Message.From.UserName,
 				}
 				s := "Задача \"" + tasks[ind].text + "\" назначена на вас"
 				sendMessage(bot, update.Message.Chat.ID, s)
@@ -217,27 +192,21 @@ func startTaskBot(ctx context.Context) error {
 				))
 			}
 			ind := findById(id)
-			nUserNames, withoutChanges := removeFromTaskUsername(
-				update.Message.From.UserName,
-				tasks[ind].users,
-			)
-			if withoutChanges {
+			if tasks[ind].eUser.name != update.Message.From.UserName {
 				bot.Send(tgbotapi.NewMessage(
 					update.Message.Chat.ID,
 					"Задача не на вас",
 				))
 			} else {
-				tasks[ind].users = nUserNames
+				tasks[ind].eUser = nil
 				bot.Send(tgbotapi.NewMessage(
 					update.Message.Chat.ID,
 					"Принято",
 				))
-				if len(nUserNames) == 0 {
-					bot.Send(tgbotapi.NewMessage(
-						tasks[ind].vendor.chatId,
-						"Задача \""+tasks[ind].text+"\" осталась без исполнителя",
-					))
-				}
+				bot.Send(tgbotapi.NewMessage(
+					tasks[ind].vendor.chatId,
+					"Задача \""+tasks[ind].text+"\" осталась без исполнителя",
+				))
 			}
 		} else if strings.HasPrefix(cmd, "/resolve_") {
 			cmds := strings.Split(cmd, "_")
@@ -262,6 +231,23 @@ func startTaskBot(ctx context.Context) error {
 			if L >= 1 {
 				tasks[L-1], tasks[ind] = tasks[ind], tasks[L-1]
 				tasks = tasks[:L-1]
+			}
+		} else if cmd == "/my" {
+			for _, t := range tasks {
+				if t.eUser.name == update.Message.From.UserName {
+					s := strconv.Itoa(t.id) + ". " + t.text + " by @" +
+						t.vendor.name + "\n/unassign_" + strconv.Itoa(t.id) +
+						" /resolve_" + strconv.Itoa(t.id)
+					sendMessage(bot, update.Message.Chat.ID, s)
+				}
+			}
+		} else if cmd == "/owner" {
+			for _, t := range tasks {
+				if t.vendor.name == update.Message.From.UserName {
+					s := strconv.Itoa(t.id) + ". " + t.text + " by @" +
+						t.vendor.name + "\n/assign_" + strconv.Itoa(t.id)
+					sendMessage(bot, update.Message.Chat.ID, s)
+				}
 			}
 		}
 	}
