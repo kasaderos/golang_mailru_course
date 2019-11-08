@@ -3,8 +3,6 @@
 .vscode
 .vagrant
 *.exe
-bin
-pkg
 solution_test.go
 solution.go
 solution*
