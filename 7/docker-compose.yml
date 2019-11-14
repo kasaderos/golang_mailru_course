@@ -1,0 +1,36 @@
+version: '3'
+
+# docker rm $(docker ps -a -q) && docker volume prune -f
+
+services:
+  mysql:
+    image: mysql:8.0.17
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: "love"
+      MYSQL_DATABASE: golang
+    ports:
+      - '3306:3306'
+    volumes:
+      - './_sql/:/docker-entrypoint-initdb.d/'
+
+  memcached:
+    image: 'memcached:latest'
+    ports:
+      - '11211:11211'
+
+  redis:
+    image: 'redis'
+    ports:
+      - '6379:6379'
+
+  rabbitmq:
+    image: 'rabbitmq'
+    ports:
+      - '5672:5672'
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8090:8080
