@@ -37,7 +37,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	items := []*Item{}
 
-	db := h.DB.Select("id, updated").Find(&items)
+	db := h.DB.Find(&items)
 	err := db.Error
 	__err_panic(err)
 
@@ -81,7 +81,9 @@ func (h *Handler) Edit(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(vars["id"])
 	__err_panic(err)
 
-	post := &Item{}
+	post := &Item{
+		Id: id,
+	}
 
 	db := h.DB.Find(post)
 	err = db.Error
@@ -140,7 +142,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	// основные настройки к базе
-	dsn := "root@tcp(localhost:3306)/coursera?"
+	dsn := "root:love@tcp(localhost:3306)/golang?"
 	// указываем кодировку
 	dsn += "&charset=utf8"
 	// отказываемся от prapared statements
