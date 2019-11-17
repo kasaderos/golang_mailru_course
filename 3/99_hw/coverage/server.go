@@ -68,9 +68,9 @@ func isInRow(q string, r Row) (res bool) {
 func sortUsers(users []User, order string) {
 	sort.Slice(users, func(i, j int) bool {
 		if order == "-1" {
-			return users[i].Name > users[j].Name
+			return users[i].Id > users[j].Id
 		}
-		return users[i].Name < users[j].Name
+		return users[i].Id < users[j].Id
 	})
 }
 
@@ -168,9 +168,9 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	}
 	sortUsers(results, order)
 	if limit > 25 {
-		results = results[offset:limit]
+		results = results[offset:limit+offset]
 	}
 	data, _ := json.Marshal(results)
 	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, string(data))
+	w.Write(data)
 }

@@ -157,10 +157,9 @@ func TestDataFindUsers(t *testing.T) {
 		Offset:     0,
 		Query:      "male",
 		OrderField: "Name",
-		OrderBy:    OrderByAsIs,
+		OrderBy:    OrderByAsc,
 	})
-	expected, _ := findQuery("male")
-	expected = expected[:26]
+	expectedId := 0
 	res2, err2 := client.FindUsers(SearchRequest{
 		Limit:      10,
 		Offset:     3,
@@ -168,12 +167,12 @@ func TestDataFindUsers(t *testing.T) {
 		OrderField: "Name",
 		OrderBy:    OrderByAsc,
 	})
-	expected2, _ := findQuery("Dillard")
-	sortUsers(expected2, "1")
-	if err != nil || res.Users[0].Id == expected[0].Id { // сравниваем первые ID
+	expected2Id := 3
+	fmt.Println(res.Users[0].Id)
+	if err != nil || res.Users[0].Id != expectedId { // сравниваем первые ID
 		t.Errorf("NextPage true fail")
 	}
-	if err2 != nil || res2.Users[0].Id == expected2[0].Id { // сравниваем первые ID
+	if err2 != nil || res2.Users[0].Id != expected2Id { // сравниваем первые ID
 		t.Errorf("Normal test without next page failed")
 	}
 	ts.Close()
