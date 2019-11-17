@@ -168,7 +168,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	}
 	sortUsers(results, order)
 	if limit > 25 {
-		results = results[offset:limit+offset]
+		results = results[offset : limit+offset]
 	}
 	data, _ := json.Marshal(results)
 	w.WriteHeader(http.StatusOK)
