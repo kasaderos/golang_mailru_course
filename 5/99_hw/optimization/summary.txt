@@ -10,18 +10,12 @@
 8. Sprintf много выделяет памяти, использовать обычную конкатенацию строк
 9. Выделять столько памяти сколько весит файл 
 
-Вот необходимы
-goos: windows
-goarch: amd64
-BenchmarkSlow-8 10 142703250 ns/op 336887900 B/op 284175 allocs/op
-BenchmarkSolution-8 500 2782432 ns/op 559910 B/op 10422 allocs/op
-PASS
 
 Вот мой результат:
 goos: linux
 goarch: amd64
 pkg: mod
-BenchmarkSlow-4               33          34789369 ns/op        18877714 B/op     195823 allocs/op
-BenchmarkFast-4              432           2643817 ns/op         1333800 B/op      10328 allocs/op
+BenchmarkSlow-4               34          34726391 ns/op        18857415 B/op     195818 allocs/op
+BenchmarkFast-4              458           2535465 ns/op         1161816 B/op      10329 allocs/op
 PASS
-ok      mod     2.690s
+ok      mod     2.725s
