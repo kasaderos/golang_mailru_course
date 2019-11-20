@@ -1,0 +1,27 @@
+Отчет
+
+1. Неявное преобразование в fmt.Fprintln(...) и аллокация
+2. Явно указать длину слайса users := make(...,len(lines))
+3. Простое регулярное выражение заменить на поиск подстроки в строке
+4. Аналогично для regexp.ReplaceAll -> strings.ReplaceAll
+5. Приведение типов []byte <-> string без аллокации 
+6. Использовать easyjson вместо json
+7. Вынести обявление user c тела цикла 
+8. Sprintf много выделяет памяти, использовать обычную конкатенацию строк
+9. Выделять столько памяти сколько весит файл 
+
+Вот необходимы
+goos: windows
+goarch: amd64
+BenchmarkSlow-8 10 142703250 ns/op 336887900 B/op 284175 allocs/op
+BenchmarkSolution-8 500 2782432 ns/op 559910 B/op 10422 allocs/op
+PASS
+
+Вот мой результат:
+goos: linux
+goarch: amd64
+pkg: mod
+BenchmarkSlow-4               33          34789369 ns/op        18877714 B/op     195823 allocs/op
+BenchmarkFast-4              432           2643817 ns/op         1333800 B/op      10328 allocs/op
+PASS
+ok      mod     2.690s

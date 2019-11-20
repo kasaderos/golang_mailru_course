@@ -2,7 +2,8 @@ package main
 
 import (
 	json "encoding/json"
-	"fmt"
+	//"fmt"
+	//"bytes"
 	"io"
 	//"io/ioutil"
 	"os"
@@ -192,19 +193,25 @@ func FastSearch(out io.Writer) {
 	if err != nil {
 		panic(err)
 	}
-	buf := make([]byte, 566019) // размер файла
+	fi, err := file.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	buf := make([]byte, fi.Size()) // размер файла
 	_, err2 := file.Read(buf)
 	if err2 != nil {
 		panic(err2)
 	}
-	
+
 	uniqueBrowsers := 0
 	lines := strings.Split(BytesToString(buf), "\n")
 	seenBrowsers := make([]string, 0, len(lines))
-	foundUsers := ""
+
+	foundUsers := make([]string, 0, len(lines))
+	user := User{}
 	for i, line := range lines {
 		// fmt.Printf("%v %v\n", err, line)
-		user := User{}
 		err := user.UnmarshalJSON(StringToBytes(line))
 		if err != nil {
 			panic(err)
@@ -227,9 +234,6 @@ func FastSearch(out io.Writer) {
 					uniqueBrowsers++
 				}
 			}
-		}
-
-		for _, browser := range user.Browsers {
 			if strings.Contains(browser, "MSIE") {
 				isMSIE = true
 				notSeenBefore := true
@@ -251,8 +255,17 @@ func FastSearch(out io.Writer) {
 		}
 		// log.Println("Android and MSIE user:", user["name"], user["email"])
 		email := strings.ReplaceAll(user.Email, "@", " [at] ")
-		foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user.Name, email)
+		foundUsers = append(foundUsers, "["+strconv.Itoa(i)+"] "+user.Name+" <"+email+">\n")
+		//foundUsers +=
+		//foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user.Name, email)
 	}
-	out.Write(StringToBytes("found users:\n" + foundUsers + "\n"))
+	//r := strings.NewReader("found users:\n")
+	//r.WriteTo(out)
+	out.Write(StringToBytes("found users:\n"))
+
+	for _, s := range foundUsers {
+		out.Write(StringToBytes(s))
+	}
+	out.Write([]byte{'\n'})
 	out.Write(StringToBytes("Total unique browsers " + strconv.Itoa(len(seenBrowsers)) + "\n"))
 }
