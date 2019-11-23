@@ -29,6 +29,13 @@ services:
     ports:
       - '5672:5672'
 
+  mongodb:
+    image: 'mongo'
+    environment:
+      - MONGO_INITDB_DATABASE=coursera
+    ports:
+      - '27017-27019:27017-27019'
+
   adminer:
     image: adminer
     restart: always
