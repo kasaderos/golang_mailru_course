@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"redditclone/pkg/handlers"
-	"redditclone/pkg/items"
 	"redditclone/pkg/middleware"
 	"redditclone/pkg/session"
 	"redditclone/pkg/user"
@@ -15,7 +14,7 @@ import (
 )
 
 func main() {
-	templates := template.Must(template.ParseGlob("./templates/*"))
+	templates := template.Must(template.ParseFiles("./template/index.html"))
 
 	sm := session.NewSessionsMem()
 	zapLogger, _ := zap.NewProduction()
@@ -23,7 +22,6 @@ func main() {
 	logger := zapLogger.Sugar()
 
 	userRepo := user.NewUserRepo()
-	itemsRepo := items.NewRepo()
 
 	userHandler := &handlers.UserHandler{
 		Tmpl:     templates,
@@ -32,24 +30,10 @@ func main() {
 		Sessions: sm,
 	}
 
-	handlers := &handlers.ItemsHandler{
-		Tmpl:      templates,
-		Logger:    logger,
-		ItemsRepo: itemsRepo,
-	}
-
 	r := mux.NewRouter()
 	r.HandleFunc("/", userHandler.Index).Methods("GET")
-	r.HandleFunc("/login", userHandler.Login).Methods("POST")
-	r.HandleFunc("/logout", userHandler.Logout).Methods("POST")
-
-	r.HandleFunc("/items", handlers.List).Methods("GET")
-	r.HandleFunc("/items/new", handlers.AddForm).Methods("GET")
-	r.HandleFunc("/items/new", handlers.Add).Methods("POST")
-	r.HandleFunc("/items/{id}", handlers.Edit).Methods("GET")
-	r.HandleFunc("/items/{id}", handlers.Update).Methods("POST")
-	r.HandleFunc("/items/{id}", handlers.Delete).Methods("DELETE")
-
+	r.HandleFunc("/api/register", userHandler.Register).Methods("POST")
+	//r.HandleFunc("/api/login", userHandler.Login).Methods("POST")
 	mux := middleware.Auth(sm, r)
 	mux = middleware.AccessLog(logger, mux)
 	mux = middleware.Panic(mux)
