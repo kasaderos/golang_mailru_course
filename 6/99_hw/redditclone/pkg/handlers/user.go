@@ -23,13 +23,13 @@ func (h *UserHandler) Index(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/api/register", 302)
 		return
 	}
-
 	err = h.Tmpl.ExecuteTemplate(w, "index.html", nil)
 	if err != nil {
 		http.Error(w, `Template errror`, http.StatusInternalServerError)
 		return
 	}
 }
+
 /*
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	u, err := h.UserRepo.Authorize(r.FormValue("login"), r.FormValue("password"))
@@ -48,7 +48,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 */
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
-	//u, err := 
+	//u, err :=
 }
 
 /*
