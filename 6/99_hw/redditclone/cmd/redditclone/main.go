@@ -42,9 +42,9 @@ func main() {
 	r.HandleFunc("/", userHandler.Index).Methods("GET")
 	dir := "./template/static/"
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
-	//r.HandleFunc("/static/css", userHandler.Static).Methods("GET")
 	//r.HandleFunc("/api/register", userHandler.Register).Methods("POST")
-	//r.HandleFunc("/api/login", userHandler.Login).Methods("POST")
+	r.HandleFunc("/api/login", userHandler.Login).Methods("POST")
+	//r.HandleFunc("/signup", userHandler.Login).Methods("POST")
 	mux := middleware.Auth(sm, r)
 	mux = middleware.AccessLog(logger, mux)
 	mux = middleware.Panic(mux)
@@ -54,5 +54,5 @@ func main() {
 		"type", "START",
 		"addr", addr,
 	)
-	http.ListenAndServe(addr, r)
+	http.ListenAndServe(addr, mux)
 }

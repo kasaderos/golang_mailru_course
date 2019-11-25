@@ -30,7 +30,6 @@ func (h *UserHandler) Index(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-/*
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	u, err := h.UserRepo.Authorize(r.FormValue("login"), r.FormValue("password"))
 	if err == user.ErrNoUser {
@@ -46,7 +45,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Infof("created session for %v", sess.UserID)
 	http.Redirect(w, r, "/", 302)
 }
-*/
+
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	//u, err :=
 }
