@@ -1,7 +1,11 @@
 package user
 
-import "errors"
+import (
+	"errors"
+)
 
+//params {"username":"alisher","password":"lovelove"}
+//token {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7InVzZXJuYW1lIjoiYWxpc2hlciIsImlkIjoiNWRkZTI4YjU0OWMxMTVlNGFmMDIyMzhiIn0sImlhdCI6MTU3NDg0MDUwMSwiZXhwIjoxNTc1NDQ1MzAxfQ.kSUyOCd4SVl4ja7EJGhMYUp61gVnelh3m5H7hFpc_Zs"}
 type User struct {
 	ID       uint32
 	Login    string
@@ -14,19 +18,15 @@ type UserRepo struct {
 
 func NewUserRepo() *UserRepo {
 	return &UserRepo{
-		data: map[string]*User{
-			"rvasily": &User{
-				ID:       1,
-				Login:    "rvasily",
-				password: "love",
-			},
-		},
+		data: make(map[string]*User),
 	}
 }
 
 var (
-	ErrNoUser  = errors.New("No user found")
-	ErrBadPass = errors.New("Invald password")
+	ErrNoUser              = errors.New("No user found")
+	ErrBadPass             = errors.New("Invald password")
+	ErrAlreadyExist        = errors.New("already exist")
+	autoID          uint32 = 1
 )
 
 func (repo *UserRepo) Authorize(login, pass string) (*User, error) {
@@ -34,10 +34,24 @@ func (repo *UserRepo) Authorize(login, pass string) (*User, error) {
 	if !ok {
 		return nil, ErrNoUser
 	}
-	
+
 	if u.password != pass {
 		return nil, ErrBadPass
 	}
 
+	return u, nil
+}
+
+func (repo *UserRepo) Register(login, pass string) (*User, error) {
+	if _, ok := repo.data[login]; ok {
+		return nil, ErrAlreadyExist
+	}
+	u := &User{
+		ID:       autoID,
+		Login:    login,
+		password: pass,
+	}
+	repo.data[login] = u
+	autoID++
 	return u, nil
 }

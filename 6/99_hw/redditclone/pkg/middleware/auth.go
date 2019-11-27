@@ -12,10 +12,16 @@ var (
 	noAuthUrls = map[string]struct{}{
 		"/login":    struct{}{},
 		"/register": struct{}{},
-		"/static":   struct{}{},
 	}
 	noSessUrls = map[string]struct{}{
-		"/": struct{}{},
+		"/":             struct{}{},
+		"/api/posts/":   struct{}{},
+		"/api/register": struct{}{},
+		"/static/css/main.74225161.chunk.css.map": struct{}{},
+		"/static/js/main.32ebaf54.chunk.js.map":   struct{}{},
+		"/static/js/2.d59deea0.chunk.js.map":      struct{}{},
+		"/static/js/main.32ebaf54.chunk.js":       struct{}{},
+		"/static/js/2.d59deea0.chunk.js":          struct{}{},
 	}
 )
 
@@ -28,6 +34,7 @@ func Auth(sm *session.SessionsManager, next http.Handler) http.Handler {
 		}
 		sess, err := sm.Check(r)
 		_, canbeWithouthSess := noSessUrls[r.URL.Path]
+		fmt.Println("CANBE", canbeWithouthSess)
 		if err != nil && !canbeWithouthSess {
 			fmt.Println("no auth")
 			http.Redirect(w, r, "/", 302)

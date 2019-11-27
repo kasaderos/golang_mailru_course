@@ -48,6 +48,7 @@ func (sm *SessionsManager) Create(w http.ResponseWriter, userID uint32) (*Sessio
 		Expires: time.Now().Add(90 * 24 * time.Hour),
 		Path:    "/",
 	}
+
 	http.SetCookie(w, cookie)
 	return sess, nil
 }
