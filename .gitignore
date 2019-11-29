@@ -1,4 +1,6 @@
 .idea
+.mod
+.sum
 .DS_Store
 .vscode
 .vagrant
