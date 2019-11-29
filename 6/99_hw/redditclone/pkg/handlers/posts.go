@@ -16,7 +16,25 @@ type PostsHandler struct {
 	Logger    *zap.SugaredLogger
 }
 
-func (h *PostsHandler) APIPost(w http.ResponseWriter, r *http.Request) {
+func (h *PostsHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
+
+	elems, err := h.PostsRepo.GetAll()
+	if err != nil {
+		http.Error(w, `DB err`, http.StatusInternalServerError)
+		return
+	}
+	data, err := json.Marshal(elems)
+	if err != nil {
+		http.Error(w, `can't send as json`, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
+}
+
+/*
+func (h *PostsHandler) APIPostADD(w http.ResponseWriter, r *http.Request) {
+	if r.Context().Value("sessionKey")
 	elems, err := h.PostsRepo.GetAll()
 	if err != nil {
 		http.Error(w, `DB err`, http.StatusInternalServerError)

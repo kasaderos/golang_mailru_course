@@ -22,9 +22,14 @@ func NewUserRepo() *UserRepo {
 	}
 }
 
+func (r *UserRepo) GetData(username string) (*User, bool) {
+	u, ok := r.data[username]
+	return u, ok
+}
+
 var (
-	ErrNoUser              = errors.New("No user found")
-	ErrBadPass             = errors.New("Invald password")
+	ErrNoUser              = errors.New("user not found")
+	ErrBadPass             = errors.New("invald password")
 	ErrAlreadyExist        = errors.New("already exist")
 	autoID          uint32 = 1
 )
