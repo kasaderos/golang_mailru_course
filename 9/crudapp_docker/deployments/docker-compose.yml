@@ -3,31 +3,32 @@ version: '3.1'
 services:
   crudapp:
     build:
-      context: ../..
-      dockerfile: deployments/Dockerfile.Miltistage
+      context: ../.
+      dockerfile: build/Dockerfile.Multistage
     image: crudapp:latest
     links:
       - dbMysql:dbMysql
-    ports:
-      - 8080:8080
+    # ports:
+    #   - 8080:8080
     volumes:
       - ../images:/app/images
     depends_on:
       - "dbMysql"
-    command: ["/app/wait-for-it.sh", "dbMysql:3306", "--", "/app/photolist"]
+    command: ["/app/wait-for-it.sh", "dbMysql:3306", "--", "/app/crudapp"]
 
   dbMysql:
     image: mysql:8.0.17
+    command: --default-authentication-plugin=mysql_native_password
     restart: always
-    ports:
-      - 3306:3306
+    # ports:
+    #   - 3306:3306
     volumes:
       # paths relative to docker-compose files
-      - ./sql:/docker-entrypoint-initdb.d
+      - ./_sql:/docker-entrypoint-initdb.d
       - ../tmp/mysql:/var/lib/mysql
     environment:
       MYSQL_ROOT_PASSWORD: "love"
-      MYSQL_DATABASE: crudapp
+      MYSQL_DATABASE: golang
 
   nginx:
     image: nginx:1.17
@@ -36,9 +37,9 @@ services:
     depends_on:
       - "crudapp"
     volumes:
-      - ../configs/nginx:/etc/nginx/conf.d
+      - ../config/nginx:/etc/nginx/conf.d
     ports:
-      - 8081:80
+      - 8080:80
 
   adminer:
     image: adminer
