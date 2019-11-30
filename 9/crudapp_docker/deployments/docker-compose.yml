@@ -1,0 +1,47 @@
+version: '3.1'
+
+services:
+  crudapp:
+    build:
+      context: ../..
+      dockerfile: deployments/Dockerfile.Miltistage
+    image: crudapp:latest
+    links:
+      - dbMysql:dbMysql
+    ports:
+      - 8080:8080
+    volumes:
+      - ../images:/app/images
+    depends_on:
+      - "dbMysql"
+    command: ["/app/wait-for-it.sh", "dbMysql:3306", "--", "/app/photolist"]
+
+  dbMysql:
+    image: mysql:8.0.17
+    restart: always
+    ports:
+      - 3306:3306
+    volumes:
+      # paths relative to docker-compose files
+      - ./sql:/docker-entrypoint-initdb.d
+      - ../tmp/mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "love"
+      MYSQL_DATABASE: crudapp
+
+  nginx:
+    image: nginx:1.17
+    links:
+      - crudapp:crudapp
+    depends_on:
+      - "crudapp"
+    volumes:
+      - ../configs/nginx:/etc/nginx/conf.d
+    ports:
+      - 8081:80
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8090:8080
