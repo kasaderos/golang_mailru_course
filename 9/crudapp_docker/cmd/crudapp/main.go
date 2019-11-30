@@ -20,6 +20,7 @@ func main() {
 
 	// основные настройки к базе
 	dsn := "root:love@tcp(dbMysql:3306)/golang?"
+	// dsn := "root:love@tcp(host.docker.internal:3306)/golang?charset=utf8&interpolateParams=true"
 	// указываем кодировку
 	dsn += "&charset=utf8"
 	// отказываемся от prapared statements
@@ -37,7 +38,7 @@ func main() {
 
 	// -----
 
-	templates := template.Must(template.ParseGlob("./templates/*"))
+	templates := template.Must(template.ParseGlob("/app/templates/*"))
 
 	sm := session.NewSessionsMem()
 	zapLogger, _ := zap.NewProduction()

@@ -4,7 +4,7 @@ BUILD_TIME?=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 export GO111MODULE=on
 
 .PHONY: build
-build: test
+build:
 	@echo "-- building binary"
 	go build \
 		-ldflags "-X main.buildHash=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
@@ -17,7 +17,7 @@ test:
 	go test -v -coverpkg=./... ./...
 
 .PHONY: docker
-docker: build
+docker:
 	@echo "-- building docker container"
 	docker build -f build/Dockerfile -t crudapp .
 
@@ -31,8 +31,12 @@ docker_run:
 	@echo "-- starting docker container"
 	docker run -it -p 8080:8080 crudapp
 
-.PHONY: docker_compose
-docker_compose: 
+.PHONY: dc
+dc:
 	@echo "-- starting docker compose"
 	docker-compose -f ./deployments/docker-compose.yml up
 
+.PHONY: dcb
+dcb:
+	@echo "-- starting docker compose"
+	docker-compose -f ./deployments/docker-compose.yml up --build
