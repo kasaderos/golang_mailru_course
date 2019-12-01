@@ -23,6 +23,7 @@ var (
 
 func (h *UserHandler) Index(w http.ResponseWriter, r *http.Request) {
 	_, err := session.SessionFromContext(r.Context())
+
 	if err == nil {
 		http.Redirect(w, r, "/api/posts/", 302)
 		return

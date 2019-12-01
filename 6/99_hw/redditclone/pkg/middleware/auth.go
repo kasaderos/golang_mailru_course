@@ -1,9 +1,9 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-
 	"redditclone/pkg/session"
 )
 
@@ -32,17 +32,17 @@ func Auth(sm *session.SessionsManager, next http.Handler) http.Handler {
 			return
 		}
 
-		//sess, err := sm.Check(r)
+		sess, err := sm.Check(r)
 
-		//_, canbeWithouthSess := noSessUrls[r.URL.Path]
-		//fmt.Println("CANBE: ", canbeWithouthSess, "ERROR:", err.Error())
-		//if err != nil && !canbeWithouthSess {
-		//	fmt.Println("no auth")
-		//	http.Redirect(w, r, "/", 302)
-		//	return
-		//}
-		//ctx := context.WithValue(r.Context(), session.SessionKey, sess)
-		//next.ServeHTTP(w, r.WithContext(ctx))
-		next.ServeHTTP(w, r)
+		_, canbeWithouthSess := noSessUrls[r.URL.Path]
+		if err != nil && !canbeWithouthSess {
+			fmt.Println("no auth")
+			http.Redirect(w, r, "/", 302)
+			return
+		}
+		fmt.Println("auth middleware with ctx")
+		ctx := context.WithValue(r.Context(), session.SessionKey, sess)
+		next.ServeHTTP(w, r.WithContext(ctx))
+
 	})
 }

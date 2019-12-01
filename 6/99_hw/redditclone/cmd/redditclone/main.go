@@ -3,14 +3,11 @@ package main
 import (
 	"html/template"
 	"net/http"
-
+	"redditclone/pkg/middleware"
 	"redditclone/pkg/handlers"
 	"redditclone/pkg/items"
-	"redditclone/pkg/middleware"
-
 	"redditclone/pkg/session"
 	"redditclone/pkg/user"
-
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
@@ -56,4 +53,5 @@ func main() {
 		"addr", addr,
 	)
 	http.ListenAndServe(addr, mux)
+	//http.ListenAndServe(addr, r)
 }

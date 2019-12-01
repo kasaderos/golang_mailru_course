@@ -55,6 +55,7 @@ func NewSession(u *user.User) (*Session, error) {
 func SessionFromContext(ctx context.Context) (*Session, error) {
 	sess, ok := ctx.Value(SessionKey).(*Session)
 	if !ok || sess == nil {
+		fmt.Println(ErrNoAuth.Error())
 		return nil, ErrNoAuth
 	}
 	return sess, nil

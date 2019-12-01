@@ -59,6 +59,10 @@ func (sm *SessionsManager) GetAccessToken(u *user.User) ([]byte, error) {
 func (sm *SessionsManager) Check(r *http.Request) (*Session, error) {
 	// проверяем есть ли в базе
 	inToken := r.Header.Get("Authorization")
+	if inToken == "" {
+		return nil, ErrNoAuth
+	}
+	fmt.Println("token", inToken)
 	payload, err := sm.JwtParse(inToken)
 	if err != nil {
 		return nil, fmt.Errorf("jwtParse")
