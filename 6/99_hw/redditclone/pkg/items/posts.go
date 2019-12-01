@@ -7,6 +7,7 @@ type Post struct {
 	Views            int       `json:"views"`
 	Type             string    `json:"type"`
 	Title            string    `json:"title"`
+	Url              string    `json:"url"`
 	Author           Author    `json:"author"`
 	Category         string    `json:"category"`
 	Text             string    `json:"text"`

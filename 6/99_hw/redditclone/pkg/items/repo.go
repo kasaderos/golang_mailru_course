@@ -13,6 +13,9 @@ func NewPostRepo() *PostsRepo {
 	}
 }
 
+func (repo *PostsRepo) Add(p *Post) {
+}
+
 func (repo *PostsRepo) GetAll() ([]*Post, error) {
 	return repo.data, nil
 }

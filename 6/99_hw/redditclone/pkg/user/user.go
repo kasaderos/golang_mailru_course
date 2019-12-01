@@ -2,6 +2,7 @@ package user
 
 import (
 	"errors"
+	"fmt"
 )
 
 //params {"username":"alisher","password":"lovelove"}
@@ -30,7 +31,7 @@ func (r *UserRepo) GetData(username string) (*User, bool) {
 var (
 	ErrNoUser              = errors.New("user not found")
 	ErrBadPass             = errors.New("invald password")
-	ErrAlreadyExist        = errors.New("already exist")
+	ErrAlreadyExist        = errors.New("already exists")
 	autoID          uint32 = 1
 )
 
@@ -57,6 +58,9 @@ func (repo *UserRepo) Register(login, pass string) (*User, error) {
 		password: pass,
 	}
 	repo.data[login] = u
+	for k, v := range repo.data {
+		fmt.Println("REPO:\n\t", k, v)
+	}
 	autoID++
 	return u, nil
 }

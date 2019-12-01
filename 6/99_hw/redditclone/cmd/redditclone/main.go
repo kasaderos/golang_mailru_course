@@ -1,15 +1,15 @@
 package main
 
 import (
-	"html/template"
-	"net/http"
-	"redditclone/pkg/middleware"
-	"redditclone/pkg/handlers"
-	"redditclone/pkg/items"
-	"redditclone/pkg/session"
-	"redditclone/pkg/user"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
+	"html/template"
+	"net/http"
+	"redditclone/pkg/handlers"
+	"redditclone/pkg/items"
+	"redditclone/pkg/middleware"
+	"redditclone/pkg/session"
+	"redditclone/pkg/user"
 )
 
 func main() {
@@ -38,10 +38,10 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", userHandler.Index).Methods("GET")
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
-	//r.HandleFunc("/api/register", userHandler.Register).Methods("POST")
-	//r.HandleFunc("/api/login", userHandler.Login).Methods("POST")
+	r.HandleFunc("/api/register", userHandler.Register).Methods("POST")
+	r.HandleFunc("/api/login", userHandler.Login).Methods("POST")
 	r.HandleFunc("/api/posts/", handlers.GetPosts).Methods("GET")
-	//r.HandleFunc("/api/posts/", handlers.APIPostADD).Methods("POST")
+	//r.HandleFunc("/api/posts/", handlers.AddPost).Methods("POST")
 
 	mux := middleware.Auth(sm, r)
 	mux = middleware.AccessLog(logger, mux)

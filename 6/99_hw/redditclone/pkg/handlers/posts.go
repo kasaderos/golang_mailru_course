@@ -17,7 +17,6 @@ type PostsHandler struct {
 }
 
 func (h *PostsHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
-
 	elems, err := h.PostsRepo.GetAll()
 	if err != nil {
 		http.Error(w, `DB err`, http.StatusInternalServerError)
@@ -32,9 +31,34 @@ func (h *PostsHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// (type url) params {"category":"music","type":"link","title":"youtube","url":"http://youtube.com"}
+// response {"score":1,"views":0,"type":"link","title":"youtube","url":"http://youtube.com","author":{"username":"alisher","id":"5dde28b549c115e4af02238b"},"category":"music","votes":[{"user":"5dde28b549c115e4af02238b","vote":1}],"comments":[],"created":"2019-12-01T18:39:32.297Z","upvotePercentage":100,"id":"5de408e4584517a1f7461866"}
+
+// (type text) params {"category":"music","type":"text","title":"You","text":"youadf"}
+// response {"score":1,"views":0,"type":"text","title":"You","author":{"username":"alisher","id":"5dde28b549c115e4af02238b"},"category":"music","text":"youadf","votes":[{"user":"5dde28b549c115e4af02238b","vote":1}],"comments":[],"created":"2019-12-01T18:45:15.454Z","upvotePercentage":100,"id":"5de40a3b5845176559461867"}
 /*
-func (h *PostsHandler) APIPostADD(w http.ResponseWriter, r *http.Request) {
-	if r.Context().Value("sessionKey")
+func (h *PostsHandler) AddPost(w http.ResponseWriter, r *http.Request) {
+	//if r.Context().Value("sessionKey")
+	params, err := getJsonParams(r)
+	if _, ok := params["url"]; ok {
+		//url
+		p := &items.Post{
+			Score:  1,
+			Views:  0,
+			Type:   "link",
+			Title:  params["title"],
+			Url:    params["url"],
+			Author: items.Author{
+
+			},
+		}
+	} else {
+		//text
+	}
+	if err != nil {
+		http.Error(w, "400", http.StatusBadRequest)
+		return
+	}
 	elems, err := h.PostsRepo.GetAll()
 	if err != nil {
 		http.Error(w, `DB err`, http.StatusInternalServerError)
