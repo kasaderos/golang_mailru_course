@@ -2,12 +2,18 @@ package session
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"redditclone/pkg/user"
+	"strings"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+)
+
+var (
+	ErrTime = errors.New("can't parse time")
 )
 
 type SessionsManager struct {
@@ -62,23 +68,30 @@ func (sm *SessionsManager) Check(r *http.Request) (*Session, error) {
 	if inToken == "" {
 		return nil, ErrNoAuth
 	}
-	fmt.Println("token", inToken)
-	payload, err := sm.JwtParse(inToken)
+	inTokens := strings.Split(inToken, " ")
+	if len(inTokens) < 2 {
+		return nil, ErrNoAuth
+	}
+	payload, err := sm.JwtParse(inTokens[1])
 	if err != nil {
 		return nil, fmt.Errorf("jwtParse")
 	}
 	username := payload["user"].(map[string]interface{})["username"].(string)
-	ID := payload["user"].(map[string]interface{})["ID"].(uint32)
-	u, ok := sm.UserRepo.GetData(username)
-	if !ok && u.ID != ID {
+	ID := uint32(payload["user"].(map[string]interface{})["id"].(float64))
+	u, err := sm.UserRepo.GetUserByUsername(username)
+	if err != nil && u.ID != ID {
 		return nil, ErrNoAuth
 	}
 	// проверяем время жизни
-	ptime := payload["iat"].(time.Time)
-	if ptime.Second() >= time.Now().Second() {
+	ptime := payload["exp"].(string)
+	t, err := time.Parse(time.RFC3339, ptime)
+	if err != nil {
+		return nil, ErrTime
+	}
+	if !time.Now().Before(t) {
 		return nil, fmt.Errorf("exp time >= now time")
 	}
-	return &Session{token: []byte(inToken)}, nil
+	return &Session{ID: inTokens[1][:5], UserID: u.ID}, nil
 }
 
 func (sm *SessionsManager) Create(w http.ResponseWriter, user *user.User) (*Session, error) {
@@ -86,6 +99,5 @@ func (sm *SessionsManager) Create(w http.ResponseWriter, user *user.User) (*Sess
 	if err != nil {
 		return nil, err
 	}
-	w.Header().Set("Authorization", string(sess.token))
 	return sess, nil
 }

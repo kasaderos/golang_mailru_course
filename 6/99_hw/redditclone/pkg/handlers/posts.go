@@ -2,11 +2,17 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
+	"strconv"
+	"time"
 
 	"redditclone/pkg/items"
+	"redditclone/pkg/session"
+	"redditclone/pkg/user"
 
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
@@ -14,6 +20,7 @@ type PostsHandler struct {
 	Tmpl      *template.Template
 	PostsRepo *items.PostsRepo
 	Logger    *zap.SugaredLogger
+	UserRepo  *user.UserRepo
 }
 
 func (h *PostsHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
@@ -36,35 +43,67 @@ func (h *PostsHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 
 // (type text) params {"category":"music","type":"text","title":"You","text":"youadf"}
 // response {"score":1,"views":0,"type":"text","title":"You","author":{"username":"alisher","id":"5dde28b549c115e4af02238b"},"category":"music","text":"youadf","votes":[{"user":"5dde28b549c115e4af02238b","vote":1}],"comments":[],"created":"2019-12-01T18:45:15.454Z","upvotePercentage":100,"id":"5de40a3b5845176559461867"}
-/*
-func (h *PostsHandler) AddPost(w http.ResponseWriter, r *http.Request) {
-	//if r.Context().Value("sessionKey")
-	params, err := getJsonParams(r)
-	if _, ok := params["url"]; ok {
-		//url
-		p := &items.Post{
-			Score:  1,
-			Views:  0,
-			Type:   "link",
-			Title:  params["title"],
-			Url:    params["url"],
-			Author: items.Author{
 
-			},
-		}
-	} else {
-		//text
-	}
+func (h *PostsHandler) AddPost(w http.ResponseWriter, r *http.Request) {
+	params, err := getJsonParams(r)
+	sess, err := session.SessionFromContext(r.Context())
+
 	if err != nil {
-		http.Error(w, "400", http.StatusBadRequest)
+		http.Error(w, "500", http.StatusInternalServerError)
 		return
 	}
-	elems, err := h.PostsRepo.GetAll()
+	p := &items.Post{
+		Score: 1,
+		Views: 0,
+		Title: params["title"],
+		Author: items.Author{
+			Username: h.UserRepo.GetUserById(sess.UserID).Login,
+			Id:       sess.UserID,
+		},
+		Category: params["category"],
+		Votes: []items.Vote{
+			items.Vote{
+				User: sess.UserID,
+				Vote: 1,
+			},
+		},
+		Created:          time.Now().Format(time.RFC3339),
+		UpvotePercentage: 100,
+	}
+	fmt.Println("3")
+	if _, ok := params["url"]; ok {
+		p.Type = "link"
+		p.Url = params["url"]
+	} else if _, ok := params["text"]; ok {
+		p.Type = "text"
+		p.Text = params["text"]
+	}
+	h.PostsRepo.Add(p)
+	h.UserRepo.AddUserPost(sess.UserID, p)
+	data, err := json.Marshal(p)
+	if err != nil {
+		http.Error(w, `can't send as json`, http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("END")
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
+}
+
+func (h *PostsHandler) GetPost(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, `{"error": "bad id"}`, http.StatusBadGateway)
+		return
+	}
+	p, err := h.PostsRepo.GetByID(uint32(id))
 	if err != nil {
 		http.Error(w, `DB err`, http.StatusInternalServerError)
 		return
 	}
-	data, err := json.Marshal(elems)
+	p.Views++
+	data, err := json.Marshal(p)
 	if err != nil {
 		http.Error(w, `can't send as json`, http.StatusInternalServerError)
 		return
@@ -73,39 +112,7 @@ func (h *PostsHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-/*
-func (h *ItemsHandler) AddForm(w http.ResponseWriter, r *http.Request) {
-	err := h.Tmpl.ExecuteTemplate(w, "create.html", nil)
-	if err != nil {
-		http.Error(w, `Template errror`, http.StatusInternalServerError)
-		return
-	}
-}
-
-func (h *ItemsHandler) Add(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	item := new(items.Item)
-	decoder := schema.NewDecoder()
-	decoder.IgnoreUnknownKeys(true)
-	err := decoder.Decode(item, r.PostForm)
-	if err != nil {
-		http.Error(w, `Bad form`, http.StatusBadRequest)
-		return
-	}
-
-	sess, _ := session.SessionFromContext(r.Context())
-	item.CreatedBy = sess.UserID
-
-	lastID, err := h.ItemsRepo.Add(item)
-	if err != nil {
-		http.Error(w, `DB err`, http.StatusInternalServerError)
-		return
-	}
-	h.Logger.Infof("Insert with id LastInsertId: %v", lastID)
-	http.Redirect(w, r, "/", http.StatusFound)
-}
-
-func (h *ItemsHandler) Edit(w http.ResponseWriter, r *http.Request) {
+func (h *PostsHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -113,71 +120,41 @@ func (h *ItemsHandler) Edit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := h.ItemsRepo.GetByID(uint32(id))
+	sess, err := session.SessionFromContext(r.Context())
 	if err != nil {
-		http.Error(w, `DB err`, http.StatusInternalServerError)
-		return
-	}
-	if item == nil {
-		http.Error(w, `no item`, http.StatusNotFound)
+		http.Error(w, "500", http.StatusInternalServerError)
 		return
 	}
 
-	err = h.Tmpl.ExecuteTemplate(w, "edit.html", item)
-	if err != nil {
-		http.Error(w, `Template errror`, http.StatusInternalServerError)
-		return
+	err = h.PostsRepo.Delete(uint32(id))
+	err2 := h.UserRepo.DeleteUserPost(sess.UserID, uint32(id))
+	if err != nil || err2 != nil {
+		w.Header().Set("Content-Type", "application/json")
+		data, err := json.Marshal(map[string]interface{}{
+			"message": "success",
+		})
+		if err != nil {
+			http.Error(w, "500", http.StatusInternalServerError)
+			return
+		}
+		w.Write(data)
 	}
 }
 
-func (h *ItemsHandler) Update(w http.ResponseWriter, r *http.Request) {
+func (h *PostsHandler) GetUserPosts(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	login := vars["login"]
+
+	ps, err := h.PostsRepo.GetUserPosts(login)
 	if err != nil {
-		http.Error(w, `Bad id`, http.StatusBadRequest)
+		http.Error(w, "400", http.StatusBadRequest)
 		return
 	}
-
-	r.ParseForm()
-	item := new(items.Item)
-	decoder := schema.NewDecoder()
-	decoder.IgnoreUnknownKeys(true)
-	err = decoder.Decode(item, r.PostForm)
+	w.Header().Set("Content-Type", "application/json")
+	data, err := json.Marshal(ps)
 	if err != nil {
-		http.Error(w, `Bad form`, http.StatusBadRequest)
+		http.Error(w, "500", http.StatusInternalServerError)
 		return
 	}
-	item.ID = uint32(id)
-
-	ok, err := h.ItemsRepo.Update(item)
-	if err != nil {
-		http.Error(w, `db error`, http.StatusInternalServerError)
-		return
-	}
-
-	h.Logger.Infof("update: %v %v", item, ok)
-
-	http.Redirect(w, r, "/", http.StatusFound)
+	w.Write(data)
 }
-
-func (h *ItemsHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		http.Error(w, `{"error": "bad id"}`, http.StatusBadGateway)
-		return
-	}
-
-	ok, err := h.ItemsRepo.Delete(uint32(id))
-	if err != nil {
-		http.Error(w, `{"error": "db error"}`, http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-type", "application/json")
-	respJSON, _ := json.Marshal(map[string]bool{
-		"success": ok,
-	})
-	w.Write(respJSON)
-}
-*/

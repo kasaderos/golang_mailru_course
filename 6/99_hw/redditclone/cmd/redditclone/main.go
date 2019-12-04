@@ -33,6 +33,7 @@ func main() {
 		Tmpl:      templates,
 		Logger:    logger,
 		PostsRepo: postsRepo,
+		UserRepo:  userRepo,
 	}
 	dir := "./template/static/"
 	r := mux.NewRouter()
@@ -41,8 +42,10 @@ func main() {
 	r.HandleFunc("/api/register", userHandler.Register).Methods("POST")
 	r.HandleFunc("/api/login", userHandler.Login).Methods("POST")
 	r.HandleFunc("/api/posts/", handlers.GetPosts).Methods("GET")
-	//r.HandleFunc("/api/posts/", handlers.AddPost).Methods("POST")
-
+	r.HandleFunc("/api/posts", handlers.AddPost).Methods("POST")
+	r.HandleFunc("/api/post/{id}", handlers.GetPost).Methods("GET")
+	r.HandleFunc("/api/post/{id}", handlers.DeletePost).Methods("DELETE")
+	r.HandleFunc("/api/user/{login}", handlers.GetUserPosts).Methods("GET")
 	mux := middleware.Auth(sm, r)
 	mux = middleware.AccessLog(logger, mux)
 	mux = middleware.Panic(mux)

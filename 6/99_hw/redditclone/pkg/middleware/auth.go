@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"redditclone/pkg/session"
+	"strings"
 )
 
 var (
@@ -24,6 +25,15 @@ var (
 	}
 )
 
+func canbeWithouthSess(r *http.Request) bool {
+	for url, _ := range noSessUrls {
+		if strings.HasPrefix(r.URL.Path, url) {
+			return true
+		}
+	}
+	return false
+}
+
 func Auth(sm *session.SessionsManager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("auth middleware")
@@ -33,14 +43,12 @@ func Auth(sm *session.SessionsManager, next http.Handler) http.Handler {
 		}
 
 		sess, err := sm.Check(r)
-
-		_, canbeWithouthSess := noSessUrls[r.URL.Path]
-		if err != nil && !canbeWithouthSess {
+		if err != nil && !canbeWithouthSess(r) {
 			fmt.Println("no auth")
 			http.Redirect(w, r, "/", 302)
 			return
 		}
-		fmt.Println("auth middleware with ctx")
+		fmt.Println("session", sess)
 		ctx := context.WithValue(r.Context(), session.SessionKey, sess)
 		next.ServeHTTP(w, r.WithContext(ctx))
 

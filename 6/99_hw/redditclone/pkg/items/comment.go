@@ -13,3 +13,8 @@ type Author struct {
 	Username string `json:"username"`
 	Id       uint32 `json:"id"`
 }
+
+type Vote struct {
+	User uint32 `json:"user"`
+	Vote int    `json:"vote"`
+}

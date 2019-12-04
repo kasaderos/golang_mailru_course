@@ -9,6 +9,7 @@ import (
 	"redditclone/pkg/session"
 	"redditclone/pkg/user"
 
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
@@ -127,4 +128,22 @@ func getJsonParams(r *http.Request) (map[string]string, error) {
 		res[k] = val
 	}
 	return res, nil
+}
+
+func (h *UserHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	login := vars["login"]
+
+	ps, err := h.UserRepo.GetUserPosts(login)
+	if err != nil {
+		http.Error(w, "400", http.StatusBadRequest)
+		return
+	}
+	data, err := json.Marshal(ps)
+	if err != nil {
+		http.Error(w, `can't send as json`, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }

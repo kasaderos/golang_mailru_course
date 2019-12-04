@@ -11,7 +11,8 @@ import (
 )
 
 type Session struct {
-	token []byte
+	ID     string
+	UserID uint32
 }
 
 type sessKey string
@@ -49,7 +50,7 @@ func NewSession(u *user.User) (*Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getAccessToken")
 	}
-	return &Session{token: token}, nil
+	return &Session{UserID: u.ID, ID: string(token[:5])}, nil
 }
 
 func SessionFromContext(ctx context.Context) (*Session, error) {

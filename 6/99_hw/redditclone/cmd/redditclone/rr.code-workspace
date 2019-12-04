@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "/home/jv/Projects/golang-2019-2/6/99_hw/redditclone"
+		},
+		{
+			"path": "/home/jv/Projects/golang-2019-2/6/7_crudapp"
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}
