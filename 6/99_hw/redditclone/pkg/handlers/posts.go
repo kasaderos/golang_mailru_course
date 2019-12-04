@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -70,7 +69,6 @@ func (h *PostsHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 		Created:          time.Now().Format(time.RFC3339),
 		UpvotePercentage: 100,
 	}
-	fmt.Println("3")
 	if _, ok := params["url"]; ok {
 		p.Type = "link"
 		p.Url = params["url"]
@@ -79,13 +77,11 @@ func (h *PostsHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 		p.Text = params["text"]
 	}
 	h.PostsRepo.Add(p)
-	h.UserRepo.AddUserPost(sess.UserID, p)
 	data, err := json.Marshal(p)
 	if err != nil {
 		http.Error(w, `can't send as json`, http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("END")
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
 }
@@ -120,25 +116,20 @@ func (h *PostsHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, err := session.SessionFromContext(r.Context())
+	err = h.PostsRepo.Delete(uint32(id))
+	if err != nil {
+		http.Error(w, "not found", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	data, err := json.Marshal(map[string]interface{}{
+		"message": "success",
+	})
 	if err != nil {
 		http.Error(w, "500", http.StatusInternalServerError)
 		return
 	}
-
-	err = h.PostsRepo.Delete(uint32(id))
-	err2 := h.UserRepo.DeleteUserPost(sess.UserID, uint32(id))
-	if err != nil || err2 != nil {
-		w.Header().Set("Content-Type", "application/json")
-		data, err := json.Marshal(map[string]interface{}{
-			"message": "success",
-		})
-		if err != nil {
-			http.Error(w, "500", http.StatusInternalServerError)
-			return
-		}
-		w.Write(data)
-	}
+	w.Write(data)
 }
 
 func (h *PostsHandler) GetUserPosts(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,6 @@ package user
 import (
 	"errors"
 	"fmt"
-	"redditclone/pkg/items"
 )
 
 var (
@@ -19,7 +18,6 @@ type User struct {
 	ID       uint32
 	Login    string
 	password string
-	posts    []*items.Post
 }
 
 type UserRepo struct {
@@ -46,43 +44,6 @@ func (r *UserRepo) GetUserById(ID uint32) *User {
 			return u
 		}
 	}
-	return nil
-}
-
-func (r *UserRepo) AddUserPost(ID uint32, p *items.Post) {
-	u := r.GetUserById(ID)
-	u.posts = append(u.posts, p)
-}
-
-func (r *UserRepo) GetUserPosts(login string) ([]*items.Post, error) {
-	u, err := r.GetUserByUsername(login)
-	if err != nil {
-		return nil, err
-	}
-	return u.posts, nil
-}
-
-func (u *User) FindPost(id uint32) int {
-	for i, v := range u.posts {
-		if v.Id == id {
-			return i
-		}
-	}
-	return -1
-}
-
-func (r *UserRepo) DeleteUserPost(id uint32, postId uint32) error {
-	u := r.GetUserById(id)
-	if u == nil {
-		return errors.New("db user repo")
-	}
-	lh := len(u.posts)
-	i := u.FindPost(id)
-	if i == -1 {
-		return errors.New("can't find post")
-	}
-	u.posts[lh-1], u.posts[i] = u.posts[i], u.posts[lh-1]
-	u.posts = u.posts[:lh-1]
 	return nil
 }
 
