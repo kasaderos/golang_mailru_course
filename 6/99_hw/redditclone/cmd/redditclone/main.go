@@ -1,8 +1,6 @@
 package main
 
 import (
-	"github.com/gorilla/mux"
-	"go.uber.org/zap"
 	"html/template"
 	"net/http"
 	"redditclone/pkg/handlers"
@@ -10,6 +8,9 @@ import (
 	"redditclone/pkg/middleware"
 	"redditclone/pkg/session"
 	"redditclone/pkg/user"
+
+	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -43,9 +44,13 @@ func main() {
 	r.HandleFunc("/api/login", userHandler.Login).Methods("POST")
 	r.HandleFunc("/api/posts/", handlers.GetPosts).Methods("GET")
 	r.HandleFunc("/api/posts", handlers.AddPost).Methods("POST")
-	r.HandleFunc("/api/post/{id}", handlers.GetPost).Methods("GET")
-	r.HandleFunc("/api/post/{id}", handlers.DeletePost).Methods("DELETE")
-	r.HandleFunc("/api/user/{login}", handlers.GetUserPosts).Methods("GET")
+	r.HandleFunc("/api/post/{POST_ID}", handlers.GetPost).Methods("GET")
+	r.HandleFunc("/api/post/{POST_ID}", handlers.DeletePost).Methods("DELETE")
+	r.HandleFunc("/api/user/{LOGIN}", handlers.GetUserPosts).Methods("GET")
+	r.HandleFunc("/api/post/{POST_ID}", handlers.AddComment).Methods("POST")
+	r.HandleFunc("/api/post/{POST_ID}/{COMMENT_ID}", handlers.DeleteComment).Methods("DELETE")
+	r.HandleFunc("/api/posts/{CATEGORY_NAME}", handlers.GetCategoryPosts).Methods("GET")
+	r.HandleFunc("/api/post/{POST_ID}/{CHOICE:upvote|downvote|unvote}", handlers.DownUpVote).Methods("GET")
 	mux := middleware.Auth(sm, r)
 	mux = middleware.AccessLog(logger, mux)
 	mux = middleware.Panic(mux)
@@ -56,5 +61,4 @@ func main() {
 		"addr", addr,
 	)
 	http.ListenAndServe(addr, mux)
-	//http.ListenAndServe(addr, r)
 }

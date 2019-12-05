@@ -25,12 +25,7 @@ var (
 )
 
 func (h *UserHandler) Index(w http.ResponseWriter, r *http.Request) {
-	_, err := session.SessionFromContext(r.Context())
-	if err == nil {
-		http.Redirect(w, r, "/api/posts/", 304)
-		return
-	}
-	err = h.Tmpl.ExecuteTemplate(w, "index.html", nil)
+	err := h.Tmpl.ExecuteTemplate(w, "index.html", nil)
 	if err != nil {
 		http.Error(w, `Template errror`, http.StatusInternalServerError)
 		return

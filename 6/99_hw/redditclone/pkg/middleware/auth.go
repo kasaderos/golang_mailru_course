@@ -14,14 +14,10 @@ var (
 		"/api/register": struct{}{},
 	}
 	noSessUrls = map[string]struct{}{
-		"/":           struct{}{},
-		"/api/posts/": struct{}{},
-		"/static/css/main.74225161.chunk.css.map": struct{}{},
-		"/static/js/main.32ebaf54.chunk.js.map":   struct{}{},
-		"/static/js/2.d59deea0.chunk.js.map":      struct{}{},
-		"/static/js/main.32ebaf54.chunk.js":       struct{}{},
-		"/static/js/2.d59deea0.chunk.js":          struct{}{},
-		"/static/css/main.74225161.chunk.css":     struct{}{},
+		"/":                                   struct{}{},
+		"/static/js/main.32ebaf54.chunk.js":   struct{}{},
+		"/static/js/2.d59deea0.chunk.js":      struct{}{},
+		"/static/css/main.74225161.chunk.css": struct{}{},
 	}
 )
 
@@ -41,9 +37,8 @@ func Auth(sm *session.SessionsManager, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-
 		sess, err := sm.Check(r)
-		if err != nil && !canbeWithouthSess(r) {
+		if err != nil && (!canbeWithouthSess(r) || r.Method != "GET") {
 			fmt.Println("no auth")
 			http.Redirect(w, r, "/", 302)
 			return
