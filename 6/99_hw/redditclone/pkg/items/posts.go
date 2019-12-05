@@ -2,10 +2,12 @@ package items
 
 import (
 	"errors"
+	"sync"
 	"time"
 )
 
 type Post struct {
+	Mu               *sync.RWMutex
 	Score            int        `json:"score"`
 	Views            int        `json:"views"`
 	Type             string     `json:"type"`

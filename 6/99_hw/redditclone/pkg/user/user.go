@@ -3,6 +3,7 @@ package user
 import (
 	"errors"
 	"fmt"
+	"sync"
 )
 
 var (
@@ -21,11 +22,13 @@ type User struct {
 }
 
 type UserRepo struct {
+	Mu   *sync.RWMutex
 	data map[string]*User
 }
 
 func NewUserRepo() *UserRepo {
 	return &UserRepo{
+		Mu : &sync.RWMutex{},
 		data: make(map[string]*User),
 	}
 }

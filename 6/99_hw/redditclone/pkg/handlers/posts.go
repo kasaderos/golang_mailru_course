@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"redditclone/pkg/items"
@@ -23,16 +24,19 @@ type PostsHandler struct {
 }
 
 func (h *PostsHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
+	h.PostsRepo.Mu.RLock()
 	elems, err := h.PostsRepo.GetAll()
 	if err != nil {
 		http.Error(w, `DB err`, http.StatusInternalServerError)
 		return
 	}
 	data, err := json.Marshal(elems)
+	h.PostsRepo.Mu.RUnlock()
 	if err != nil {
 		http.Error(w, `can't send as json`, http.StatusInternalServerError)
 		return
 	}
+
 	/*if h.PostsRepo.Changed {
 		w.WriteHeader(http.StatusOK)
 		h.PostsRepo.Changed = false
@@ -43,12 +47,6 @@ func (h *PostsHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-// (type url) params {"category":"music","type":"link","title":"youtube","url":"http://youtube.com"}
-// response {"score":1,"views":0,"type":"link","title":"youtube","url":"http://youtube.com","author":{"username":"alisher","id":"5dde28b549c115e4af02238b"},"category":"music","votes":[{"user":"5dde28b549c115e4af02238b","vote":1}],"comments":[],"created":"2019-12-01T18:39:32.297Z","upvotePercentage":100,"id":"5de408e4584517a1f7461866"}
-
-// (type text) params {"category":"music","type":"text","title":"You","text":"youadf"}
-// response {"score":1,"views":0,"type":"text","title":"You","author":{"username":"alisher","id":"5dde28b549c115e4af02238b"},"category":"music","text":"youadf","votes":[{"user":"5dde28b549c115e4af02238b","vote":1}],"comments":[],"created":"2019-12-01T18:45:15.454Z","upvotePercentage":100,"id":"5de40a3b5845176559461867"}
-
 func (h *PostsHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 	params, err := getJsonParams(r)
 	sess, err := session.SessionFromContext(r.Context())
@@ -58,6 +56,7 @@ func (h *PostsHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := &items.Post{
+		Mu:    &sync.RWMutex{},
 		Score: 1,
 		Views: 0,
 		Title: params["title"],
@@ -82,8 +81,12 @@ func (h *PostsHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 		p.Type = "text"
 		p.Text = params["text"]
 	}
+	h.PostsRepo.Mu.Lock()
 	h.PostsRepo.Add(p)
+	p.Mu.RLock()
+	h.PostsRepo.Mu.Unlock()
 	data, err := json.Marshal(p)
+	p.Mu.RUnlock()
 	if err != nil {
 		http.Error(w, `can't send as json`, http.StatusInternalServerError)
 		return
@@ -99,13 +102,17 @@ func (h *PostsHandler) GetPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "bad id"}`, http.StatusBadGateway)
 		return
 	}
+	h.PostsRepo.Mu.RLock()
 	p, err := h.PostsRepo.GetByID(uint32(id))
+	p.Mu.Lock()
+	h.PostsRepo.Mu.RUnlock()
 	if err != nil {
 		http.Error(w, `DB err`, http.StatusInternalServerError)
 		return
 	}
 	p.Views++
 	data, err := json.Marshal(p)
+	p.Mu.Unlock()
 	if err != nil {
 		http.Error(w, `can't send as json`, http.StatusInternalServerError)
 		return
@@ -121,8 +128,9 @@ func (h *PostsHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "bad id"}`, http.StatusBadGateway)
 		return
 	}
-
+	h.PostsRepo.Mu.Lock()
 	err = h.PostsRepo.Delete(uint32(id))
+	h.PostsRepo.Mu.Unlock()
 	if err != nil {
 		http.Error(w, "not found", http.StatusInternalServerError)
 		return
@@ -141,14 +149,16 @@ func (h *PostsHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
 func (h *PostsHandler) GetUserPosts(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	login := vars["LOGIN"]
-
+	h.PostsRepo.Mu.RLock()
 	ps, err := h.PostsRepo.GetUserPosts(login)
+
 	if err != nil {
 		http.Error(w, "400", http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	data, err := json.Marshal(ps)
+	h.PostsRepo.Mu.RUnlock()
 	if err != nil {
 		http.Error(w, "500", http.StatusInternalServerError)
 		return
@@ -164,22 +174,29 @@ func (h *PostsHandler) AddComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "500", http.StatusInternalServerError)
 		return
 	}
-	p, err := h.PostsRepo.GetPost(uint32(p_id))
-	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
+	params, err := getJsonParams(r)
+	if _, ok := params["comment"]; !ok {
+		http.Error(w, "400 no param", http.StatusInternalServerError)
+		return
 	}
 	sess, err := session.SessionFromContext(r.Context())
 	if err != nil {
 		http.Error(w, "500", http.StatusInternalServerError)
 		return
 	}
-	params, err := getJsonParams(r)
-	if _, ok := params["comment"]; !ok {
-		http.Error(w, "400 no param", http.StatusInternalServerError)
-		return
+
+	h.PostsRepo.Mu.RLock()
+	p, err := h.PostsRepo.GetPost(uint32(p_id))
+	h.PostsRepo.Mu.RUnlock()
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
 	}
+	h.UserRepo.Mu.Lock()
 	u := h.UserRepo.GetUserById(sess.UserID)
+	p.Mu.Lock()
 	p.AddComment(params["comment"], u.ID, u.Login)
+	h.UserRepo.Mu.Unlock()
+	p.Mu.Unlock()
 	data, err := json.Marshal(p)
 	if err != nil {
 		http.Error(w, "500", http.StatusInternalServerError)
@@ -199,8 +216,12 @@ func (h *PostsHandler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "500", http.StatusInternalServerError)
 		return
 	}
+	h.PostsRepo.Mu.RLock()
 	p, err := h.PostsRepo.GetPost(uint32(p_id))
+	p.Mu.Lock()
+	h.PostsRepo.Mu.Unlock()
 	p.DeleteComment(uint32(c_id))
+	p.Mu.Unlock()
 	data, err := json.Marshal(p)
 	if err != nil {
 		http.Error(w, "500", http.StatusInternalServerError)
@@ -213,8 +234,10 @@ func (h *PostsHandler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 func (h *PostsHandler) GetCategoryPosts(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	category := vars["CATEGORY_NAME"]
+	h.PostsRepo.Mu.RLock()
 	elems := h.PostsRepo.GetCategoryPosts(category)
 	data, err := json.Marshal(elems)
+	h.PostsRepo.Mu.RUnlock()
 	if err != nil {
 		http.Error(w, `can't send as json`, http.StatusInternalServerError)
 		return
@@ -233,14 +256,17 @@ func (h *PostsHandler) DownUpVote(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "500", http.StatusInternalServerError)
 		return
 	}
-	p, err := h.PostsRepo.GetPost(uint32(p_id))
-	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-	}
 	sess, err := session.SessionFromContext(r.Context())
 	if err != nil {
 		http.Error(w, "500", http.StatusInternalServerError)
 		return
+	}
+	h.PostsRepo.Mu.RLock()
+	p, err := h.PostsRepo.GetPost(uint32(p_id))
+	p.Mu.Lock()
+	h.PostsRepo.Mu.RUnlock()
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
 	}
 	switch choice {
 	case "unvote":
@@ -255,6 +281,7 @@ func (h *PostsHandler) DownUpVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data, err := json.Marshal(p)
+	p.Mu.Unlock()
 	if err != nil {
 		http.Error(w, "500", http.StatusInternalServerError)
 		return

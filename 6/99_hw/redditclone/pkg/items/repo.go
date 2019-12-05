@@ -2,11 +2,13 @@ package items
 
 import (
 	"errors"
+	"sync"
 )
 
 // WARNING! completly unsafe in multi-goroutine use, need add mutexes
 
 type PostsRepo struct {
+	Mu      *sync.RWMutex
 	lastID  uint32
 	data    []*Post
 	Changed bool
@@ -15,6 +17,7 @@ type PostsRepo struct {
 func NewPostRepo() *PostsRepo {
 	return &PostsRepo{
 		data: make([]*Post, 0, 10),
+		Mu:   &sync.RWMutex{},
 	}
 }
 
@@ -48,11 +51,11 @@ func (repo *PostsRepo) GetByID(id uint32) (*Post, error) {
 }
 
 func (repo *PostsRepo) GetUserPosts(login string) ([]*Post, error) {
+	ups := make([]*Post, 0, 10)
 	ps, err := repo.GetAll()
 	if err != nil {
 		return nil, errors.New("db error")
 	}
-	ups := make([]*Post, 0, 10)
 	for _, p := range ps {
 		if p.Author.Username == login {
 			ups = append(ups, p)
