@@ -159,16 +159,15 @@ func TestDataFindUsers(t *testing.T) {
 		OrderField: "Name",
 		OrderBy:    OrderByAsc,
 	})
-	expectedId := 0
+	expectedId := 34
 	res2, err2 := client.FindUsers(SearchRequest{
 		Limit:      10,
 		Offset:     3,
 		Query:      "Dillard",
 		OrderField: "Name",
-		OrderBy:    OrderByAsc,
+		OrderBy:    OrderByDesc,
 	})
 	expected2Id := 3
-	fmt.Println(res.Users[0].Id)
 	if err != nil || res.Users[0].Id != expectedId { // сравниваем первые ID
 		t.Errorf("NextPage true fail")
 	}
@@ -203,6 +202,26 @@ func TestServerAtoi(t *testing.T) {
 }
 
 func TestServerUnMarshal(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
+	filename = "bad_dataset.xml"
+	client := SearchClient{
+		AccessToken: "authorization",
+		URL:         ts.URL,
+	}
+	_, err := client.FindUsers(SearchRequest{
+		Limit:      30,
+		Offset:     0,
+		Query:      "male",
+		OrderField: "Name",
+		OrderBy:    OrderByAsIs,
+	})
+	if err == nil {
+		fmt.Errorf("fail another xml file")
+	}
+	ts.Close()
+}
+
+func TestError500(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
 	filename = "bad_dataset.xml"
 	client := SearchClient{
