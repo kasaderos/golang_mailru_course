@@ -229,9 +229,9 @@ func TestError500(t *testing.T) {
 		URL:         ts.URL,
 	}
 	_, err := client.FindUsers(SearchRequest{
-		Limit:      30,
+		Limit:      1,
 		Offset:     0,
-		Query:      "male",
+		Query:      "panic server",
 		OrderField: "Name",
 		OrderBy:    OrderByAsIs,
 	})

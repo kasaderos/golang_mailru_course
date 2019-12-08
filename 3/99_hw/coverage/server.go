@@ -144,6 +144,11 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := r.URL.Query().Get("query")
+
+	// здесь рассматривается кэйс когда сервер упадет
+	if query == "panic server" {
+		panic("a string that causes the server to crash")
+	}
 	orderField := r.URL.Query().Get("order_field")
 	if query == "long request" {
 		time.Sleep(time.Second) // ищем этот текст
@@ -168,8 +173,8 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	}
 	sortUsers(results, order)
 	if len(results) >= limit+offset {
-		results = results[offset:limit+offset]
-	} 
+		results = results[offset : limit+offset]
+	}
 	data, _ := json.Marshal(results)
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)

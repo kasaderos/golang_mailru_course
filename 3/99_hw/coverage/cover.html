@@ -56,7 +56,7 @@
 				
 				<option value="file0">/home/jv/Projects/golang-2019-2/3/99_hw/coverage/client.go (100.0%)</option>
 				
-				<option value="file1">/home/jv/Projects/golang-2019-2/3/99_hw/coverage/server.go (97.1%)</option>
+				<option value="file1">/home/jv/Projects/golang-2019-2/3/99_hw/coverage/server.go (100.0%)</option>
 				
 				</select>
 			</div>
@@ -279,7 +279,7 @@ func sortUsers(users []User, order string) <span class="cov8" title="1">{
                 if order == "-1" </span><span class="cov8" title="1">{
                         return users[i].Id &gt; users[j].Id
                 }</span>
-                <span class="cov0" title="0">return users[i].Id &lt; users[j].Id</span>
+                <span class="cov8" title="1">return users[i].Id &lt; users[j].Id</span>
         })
 }
 
@@ -333,7 +333,7 @@ func GiveBadJsonServer(w http.ResponseWriter, r *http.Request) <span class="cov8
 
 func SearchServer(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         defer func() </span><span class="cov8" title="1">{
-                if r := recover(); r != nil </span><span class="cov0" title="0">{
+                if r := recover(); r != nil </span><span class="cov8" title="1">{
                         w.WriteHeader(http.StatusInternalServerError)
                 }</span>
         }()
@@ -353,7 +353,11 @@ func SearchServer(w http.ResponseWriter, r *http.Request) <span class="cov8" tit
         }</span>
 
         <span class="cov8" title="1">query := r.URL.Query().Get("query")
-        orderField := r.URL.Query().Get("order_field")
+        // здесь рассматривается кэйс когда сервер упадет
+        if query == "panic server" </span><span class="cov8" title="1">{
+                panic("a string that causes the server to crash")</span>
+        }
+        <span class="cov8" title="1">orderField := r.URL.Query().Get("order_field")
         if query == "long request" </span><span class="cov8" title="1">{
                 time.Sleep(time.Second) // ищем этот текст
         }</span>
@@ -377,8 +381,8 @@ func SearchServer(w http.ResponseWriter, r *http.Request) <span class="cov8" tit
         }</span>
         <span class="cov8" title="1">sortUsers(results, order)
         if len(results) &gt;= limit+offset </span><span class="cov8" title="1">{
-                results = results[offset:limit+offset]
-        }</span> 
+                results = results[offset : limit+offset]
+        }</span>
         <span class="cov8" title="1">data, _ := json.Marshal(results)
         w.WriteHeader(http.StatusOK)
         w.Write(data)</span>
