@@ -1,9 +1,7 @@
 package session
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"redditclone/pkg/user"
 	"strings"
@@ -13,7 +11,11 @@ import (
 )
 
 var (
-	ErrTime = errors.New("can't parse time")
+	ErrBadSign            = errors.New("bad sign method")
+	ErrBadToken           = errors.New("bad token")
+	ErrPayload            = errors.New("no payload")
+	ErrExpTime            = errors.New("exp time >= now time")
+    ErrJwtParse           = errors.New("jwtParse")
 )
 
 type SessionsManager struct {
@@ -24,42 +26,20 @@ func (sm *SessionsManager) JwtParse(inToken string) (jwt.MapClaims, error) {
 	hashSecretGetter := func(token *jwt.Token) (interface{}, error) {
 		method, ok := token.Method.(*jwt.SigningMethodHMAC)
 		if !ok || method.Alg() != "HS256" {
-			return nil, fmt.Errorf("bad sign method")
+			return nil, ErrBadSign
 		}
 		return tokenSecret, nil
 	}
 	token, err := jwt.Parse(inToken, hashSecretGetter)
 	if err != nil || !token.Valid {
-		return nil, fmt.Errorf("bad token")
+		return nil, ErrBadToken
 	}
 
 	payload, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return nil, fmt.Errorf("no payload")
+		return nil, ErrPayload
 	}
 	return payload, nil
-}
-
-func (sm *SessionsManager) GetAccessToken(u *user.User) ([]byte, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user": map[string]interface{}{
-			"username": u.Login,
-			"id":       u.ID,
-		},
-		"iat": time.Now(),
-		"exp": time.Now().Add(time.Hour * 24),
-	})
-	tokenString, err := token.SignedString(tokenSecret)
-	if err != nil {
-		return nil, fmt.Errorf("signed string")
-	}
-	tokenjs, err := json.Marshal(map[string]interface{}{
-		"token": tokenString,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("can't marshal")
-	}
-	return tokenjs, nil
 }
 
 func (sm *SessionsManager) Check(r *http.Request) (*Session, error) {
@@ -74,7 +54,7 @@ func (sm *SessionsManager) Check(r *http.Request) (*Session, error) {
 	}
 	payload, err := sm.JwtParse(inTokens[1])
 	if err != nil {
-		return nil, fmt.Errorf("jwtParse")
+		return nil, ErrJwtParse
 	}
 	username := payload["user"].(map[string]interface{})["username"].(string)
 	ID := uint32(payload["user"].(map[string]interface{})["id"].(float64))
@@ -86,10 +66,10 @@ func (sm *SessionsManager) Check(r *http.Request) (*Session, error) {
 	ptime := payload["exp"].(string)
 	t, err := time.Parse(time.RFC3339, ptime)
 	if err != nil {
-		return nil, ErrTime
+		return nil, ErrExpTime
 	}
 	if !time.Now().Before(t) {
-		return nil, fmt.Errorf("exp time >= now time")
+		return nil, ErrExpTime
 	}
 	return &Session{ID: inTokens[1][:5], UserID: u.ID}, nil
 }

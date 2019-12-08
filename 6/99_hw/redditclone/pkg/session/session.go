@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+
 	jwt "github.com/dgrijalva/jwt-go"
 	"redditclone/pkg/user"
 	"time"
@@ -16,7 +16,7 @@ type Session struct {
 }
 
 var (
-	SessionKey  sessKey = "sessionKey"
+	SessionKey          = "sessionKey"
 	tokenSecret         = []byte("your-256-bit-secret")
 	ErrNoAuth           = errors.New("No session found")
 	ErrSignedString     = errors.New("signed string")
@@ -24,7 +24,7 @@ var (
     ErrAccessToken      = errors.New("get access token error")
 )
 
-func genAccessToken(u *user.User) ([]byte, error) {
+func GenAccessToken(u *user.User) ([]byte, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user": map[string]interface{}{
 			"username": u.Login,
@@ -47,7 +47,7 @@ func genAccessToken(u *user.User) ([]byte, error) {
 }
 
 func NewSession(u *user.User) (*Session, error) {
-	token, err := genAccessToken(u)
+	token, err := GenAccessToken(u)
 	if err != nil {
 		return nil, ErrAccessToken
 	}

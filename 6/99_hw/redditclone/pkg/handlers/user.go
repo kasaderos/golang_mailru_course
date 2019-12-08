@@ -52,7 +52,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.Sessions.GetAccessToken(u)
+	token, err := session.GenAccessToken(u)
 	if err != nil {
 		http.Error(w, "500", http.StatusInternalServerError)
 		return
@@ -86,7 +86,7 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Infof("registered user %v", u.ID)
 	w.Header().Set("Content-Type", "application/json")
 
-	token, err := h.Sessions.GetAccessToken(u)
+	token, err := session.GenAccessToken(u)
 	if err != nil {
 		http.Error(w, "token jwt", http.StatusInternalServerError)
 		return
