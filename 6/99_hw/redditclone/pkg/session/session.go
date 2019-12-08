@@ -15,15 +15,16 @@ type Session struct {
 	UserID uint32
 }
 
-type sessKey string
-
 var (
 	SessionKey  sessKey = "sessionKey"
 	tokenSecret         = []byte("your-256-bit-secret")
 	ErrNoAuth           = errors.New("No session found")
+	ErrSignedString     = errors.New("signed string")
+	ErrJsonMarshal      = errors.New("can't marshal")
+    ErrAccessToken      = errors.New("get access token error")
 )
 
-func getAccessToken(u *user.User) ([]byte, error) {
+func genAccessToken(u *user.User) ([]byte, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user": map[string]interface{}{
 			"username": u.Login,
@@ -34,21 +35,21 @@ func getAccessToken(u *user.User) ([]byte, error) {
 	})
 	tokenString, err := token.SignedString(tokenSecret)
 	if err != nil {
-		return nil, fmt.Errorf("signed string")
+		return nil, ErrSignedString
 	}
 	tokenjs, err := json.Marshal(map[string]interface{}{
 		"token": tokenString,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("can't marshal")
+		return nil, ErrJsonMarshal
 	}
 	return tokenjs, nil
 }
 
 func NewSession(u *user.User) (*Session, error) {
-	token, err := getAccessToken(u)
+	token, err := genAccessToken(u)
 	if err != nil {
-		return nil, fmt.Errorf("getAccessToken")
+		return nil, ErrAccessToken
 	}
 	return &Session{UserID: u.ID, ID: string(token[:5])}, nil
 }
@@ -56,7 +57,6 @@ func NewSession(u *user.User) (*Session, error) {
 func SessionFromContext(ctx context.Context) (*Session, error) {
 	sess, ok := ctx.Value(SessionKey).(*Session)
 	if !ok || sess == nil {
-		fmt.Println(ErrNoAuth.Error())
 		return nil, ErrNoAuth
 	}
 	return sess, nil
