@@ -36,13 +36,6 @@ func (h *PostsHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `can't send as json`, http.StatusInternalServerError)
 		return
 	}
-
-	/*if h.PostsRepo.Changed {
-		w.WriteHeader(http.StatusOK)
-		h.PostsRepo.Changed = false
-	} else {
-		w.WriteHeader(http.StatusNotModified)
-	}*/
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
 }

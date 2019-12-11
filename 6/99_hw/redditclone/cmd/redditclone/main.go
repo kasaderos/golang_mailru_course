@@ -17,7 +17,7 @@ func main() {
 	templates := template.Must(template.ParseFiles("./template/index.html"))
 
 	zapLogger, _ := zap.NewProduction()
-	defer zapLogger.Sync() // flushes buffer, if any
+	defer zapLogger.Sync()
 	logger := zapLogger.Sugar()
 
 	userRepo := user.NewUserRepo()
@@ -37,9 +37,11 @@ func main() {
 		UserRepo:  userRepo,
 	}
 	dir := "./template/static/"
+
 	r := mux.NewRouter()
-	r.HandleFunc("/", userHandler.Index).Methods("GET")
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
+
+	r.HandleFunc("/", userHandler.Index).Methods("GET")
 	r.HandleFunc("/api/register", userHandler.Register).Methods("POST")
 	r.HandleFunc("/api/login", userHandler.Login).Methods("POST")
 	r.HandleFunc("/api/posts/", handlers.GetPosts).Methods("GET")
